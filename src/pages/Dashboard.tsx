@@ -79,33 +79,22 @@ export const Dashboard: React.FC = () => {
   );
 
   const handleSubjectClick = (subject: Subject) => {
-    setSelectedSubject(subject);
+    navigate('/study');
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (selectedSubject) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
-        <div className="flex-1 overflow-hidden">
-          <SubjectView subject={selectedSubject} onBack={() => setSelectedSubject(null)} />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
@@ -115,6 +104,16 @@ export const Dashboard: React.FC = () => {
             onChange={setSearchQuery}
             totalSubjects={subjects.length}
           />
+
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Quick Access</h2>
+            <button
+              onClick={() => navigate('/study')}
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium text-sm"
+            >
+              Browse All Topics
+            </button>
+          </div>
 
           {recentlyAccessedSubjects.length > 0 && (
             <RecentlyAccessed subjects={recentlyAccessedSubjects} onSubjectClick={handleSubjectClick} />

@@ -40,16 +40,16 @@ export const BooksTab: React.FC<BooksTabProps> = ({
   if (selectedBook) {
     return (
       <div className="h-full flex flex-col">
-        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">{selectedBook.title}</h3>
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 dark:text-white">{selectedBook.title}</h3>
           <button
             onClick={() => setSelectedBook(null)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
           >
             Back to List
           </button>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 bg-gray-100 dark:bg-gray-900">
           {selectedBook.file_url && (
             <PDFViewer fileUrl={selectedBook.file_url} title={selectedBook.title} />
           )}
@@ -62,10 +62,10 @@ export const BooksTab: React.FC<BooksTabProps> = ({
     <div className="h-full overflow-auto p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Books</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Books</h2>
           <button
             onClick={() => setShowUpload(!showUpload)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
           >
             <Plus className="w-4 h-4" />
             Add Book
@@ -85,13 +85,13 @@ export const BooksTab: React.FC<BooksTabProps> = ({
         )}
 
         {resources.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-            <Book className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No books yet</h3>
-            <p className="text-gray-600 mb-4">Upload your first book to get started</p>
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+            <Book className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No books yet</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">Upload your first book to get started</p>
             <button
               onClick={() => setShowUpload(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
             >
               <Plus className="w-4 h-4" />
               Upload Book
@@ -102,18 +102,18 @@ export const BooksTab: React.FC<BooksTabProps> = ({
             {resources.map((resource) => (
               <div
                 key={resource.id}
-                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition group"
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition group"
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Book className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Book className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                       {resource.title}
                     </h3>
                     {resource.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">
                         {resource.description}
                       </p>
                     )}
@@ -123,7 +123,7 @@ export const BooksTab: React.FC<BooksTabProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setSelectedBook(resource)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-sm font-medium"
                   >
                     <Eye className="w-4 h-4" />
                     View
@@ -132,18 +132,18 @@ export const BooksTab: React.FC<BooksTabProps> = ({
                     <a
                       href={resource.file_url}
                       download={resource.title}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                      className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                       title="Download"
                     >
-                      <Download className="w-4 h-4 text-gray-700" />
+                      <Download className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                     </a>
                   )}
                   <button
                     onClick={() => handleDelete(resource)}
-                    className="p-2 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                    className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition"
                     title="Delete"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </button>
                 </div>
               </div>
