@@ -2,24 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { Subject, Topic, Resource } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Book, Presentation, FileText, HelpCircle, Plus } from 'lucide-react';
+import { Book, Presentation, FileText, HelpCircle, MessageCircle, Lightbulb, TrendingUp, Clock } from 'lucide-react';
 import { BooksTab } from './tabs/BooksTab';
 import { SlidesTab } from './tabs/SlidesTab';
 import { NotesTab } from './tabs/NotesTab';
 import { PYQsTab } from './tabs/PYQsTab';
+import { AIChat } from './AIChat';
+import { ConceptExplainer } from './ConceptExplainer';
+import { ProgressAnalytics } from './ProgressAnalytics';
+import { useStudyTimer } from '@/hooks/useStudyTimer';
 
 interface TopicViewProps {
   topic: Topic;
   subject: Subject;
 }
 
-type TabType = 'books' | 'slides' | 'notes' | 'pyqs';
+type TabType = 'books' | 'slides' | 'notes' | 'pyqs' | 'ai_doubt' | 'concept_explainer' | 'analytics';
 
 export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
   const [activeTab, setActiveTab] = useState<TabType>('books');
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { formattedTime, isTracking } = useStudyTimer(topic.id);
 
   useEffect(() => {
     fetchResources();
@@ -64,10 +69,13 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
   };
 
   const tabs = [
-    { id: 'books' as TabType, label: 'Books', icon: Book, color: 'text-blue-600' },
-    { id: 'slides' as TabType, label: 'Slides', icon: Presentation, color: 'text-green-600' },
-    { id: 'notes' as TabType, label: 'Notes', icon: FileText, color: 'text-orange-600' },
-    { id: 'pyqs' as TabType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600' },
+    { id: 'books' as TabType, label: 'Books', icon: Book, color: 'text-blue-600', category: 'resources' },
+    { id: 'slides' as TabType, label: 'Slides', icon: Presentation, color: 'text-green-600', category: 'resources' },
+    { id: 'notes' as TabType, label: 'Notes', icon: FileText, color: 'text-orange-600', category: 'resources' },
+    { id: 'pyqs' as TabType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600', category: 'resources' },
+    { id: 'ai_doubt' as TabType, label: 'AI Doubt', icon: MessageCircle, color: 'text-blue-600', category: 'ai' },
+    { id: 'concept_explainer' as TabType, label: 'Explainer', icon: Lightbulb, color: 'text-yellow-600', category: 'ai' },
+    { id: 'analytics' as TabType, label: 'Analytics', icon: TrendingUp, color: 'text-green-600', category: 'tracking' },
   ];
 
   const getResourcesByType = (type: string) => {
@@ -91,12 +99,21 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               <p className="text-sm text-gray-600 mt-1">{topic.description}</p>
             )}
           </div>
+          {isTracking && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <Clock className="w-5 h-5 text-green-600 animate-pulse" />
+              <div className="text-right">
+                <p className="text-xs text-green-600 font-medium">Study Time</p>
+                <p className="text-lg font-bold text-green-700">{formattedTime}</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const resourceCount = getResourcesByType(tab.id).length;
+            const resourceCount = tab.category === 'resources' ? getResourcesByType(tab.id).length : 0;
             return (
               <button
                 key={tab.id}
@@ -109,7 +126,7 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
-                {resourceCount > 0 && (
+                {tab.category === 'resources' && resourceCount > 0 && (
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     activeTab === tab.id
                       ? 'bg-white/20'
@@ -162,6 +179,11 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
                 onResourceAdded={fetchResources}
               />
             )}
+            {activeTab === 'ai_doubt' && <AIChat topicId={topic.id} topicName={topic.name} />}
+            {activeTab === 'concept_explainer' && (
+              <ConceptExplainer topicId={topic.id} topicName={topic.name} />
+            )}
+            {activeTab === 'analytics' && <ProgressAnalytics topicId={topic.id} />}
           </>
         )}
       </div>

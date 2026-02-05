@@ -23,6 +23,7 @@ export interface Resource {
   file_url: string | null;
   file_path: string | null;
   description: string | null;
+  section_id: string | null;
   created_at: string;
 }
 
@@ -32,6 +33,8 @@ export interface UserProgress {
   topic_id: string;
   progress_percentage: number;
   last_accessed: string;
+  total_time_seconds: number;
+  completed: boolean;
   created_at: string;
 }
 
@@ -42,6 +45,7 @@ export interface AIChatMessage {
   message: string;
   response: string | null;
   role: 'user' | 'assistant';
+  chat_type: 'doubt' | 'concept_explainer';
   created_at: string;
 }
 
@@ -56,4 +60,33 @@ export interface User {
 export interface SubjectWithProgress extends Subject {
   progress_percentage?: number;
   last_accessed?: string;
+}
+
+export interface CustomSection {
+  id: string;
+  topic_id: string;
+  name: string;
+  icon: string;
+  color: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface StudySession {
+  id: string;
+  user_id: string;
+  topic_id: string;
+  start_time: string;
+  end_time: string | null;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export interface StudyStreak {
+  id: string;
+  user_id: string;
+  current_streak: number;
+  longest_streak: number;
+  last_study_date: string;
+  updated_at: string;
 }

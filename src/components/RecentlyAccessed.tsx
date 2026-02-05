@@ -4,9 +4,10 @@ import { Clock } from 'lucide-react';
 
 interface RecentlyAccessedProps {
   subjects: SubjectWithProgress[];
+  onSubjectClick?: (subject: SubjectWithProgress) => void;
 }
 
-export const RecentlyAccessed: React.FC<RecentlyAccessedProps> = ({ subjects }) => {
+export const RecentlyAccessed: React.FC<RecentlyAccessedProps> = ({ subjects, onSubjectClick }) => {
   const getTimeAgo = (lastAccessed?: string) => {
     if (!lastAccessed) return 'Now';
     const date = new Date(lastAccessed);
@@ -29,6 +30,7 @@ export const RecentlyAccessed: React.FC<RecentlyAccessedProps> = ({ subjects }) 
         {subjects.map((subject) => (
           <div
             key={subject.id}
+            onClick={() => onSubjectClick?.(subject)}
             className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition cursor-pointer"
           >
             <div

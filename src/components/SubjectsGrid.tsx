@@ -3,9 +3,10 @@ import { SubjectWithProgress } from '@/lib/types';
 
 interface SubjectsGridProps {
   subjects: SubjectWithProgress[];
+  onSubjectClick?: (subject: SubjectWithProgress) => void;
 }
 
-export const SubjectsGrid: React.FC<SubjectsGridProps> = ({ subjects }) => {
+export const SubjectsGrid: React.FC<SubjectsGridProps> = ({ subjects, onSubjectClick }) => {
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-4">All Subjects</h2>
@@ -13,6 +14,7 @@ export const SubjectsGrid: React.FC<SubjectsGridProps> = ({ subjects }) => {
         {subjects.map((subject) => (
           <div
             key={subject.id}
+            onClick={() => onSubjectClick?.(subject)}
             className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition cursor-pointer group"
           >
             <div
