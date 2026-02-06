@@ -9,6 +9,19 @@ interface FileUploadProps {
   acceptedTypes?: string;
 }
 
+const DEMO_STORAGE_KEY = 'demo_resources';
+
+const getDemoResources = (topicId: string) => {
+  const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
+  return all[topicId] || [];
+};
+
+const setDemoResources = (topicId: string, resources: any[]) => {
+  const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
+  all[topicId] = resources;
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(all));
+};
+
 export const FileUpload: React.FC<FileUploadProps> = ({
   topicId,
   resourceType,
@@ -43,6 +56,39 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setError(null);
 
     try {
+      /**
+       * 🟢 DEMO MODE (no Supabase)
+       */
+      if (!supabase) {
+        const existing = getDemoResources(topicId);
+
+        const newResource = {
+          id: crypto.randomUUID(),
+          topic_id: topicId,
+          title,
+          description: description || null,
+          type: resourceType,
+          file_name: file.name,
+          file_size: file.size,
+          uploaded_at: Date.now(),
+          demo: true,
+        };
+
+        const updated = [...existing, newResource];
+        setDemoResources(topicId, updated);
+
+        setSuccess(true);
+        setTimeout(() => {
+          onSuccess();
+          resetForm();
+        }, 1000);
+
+        return;
+      }
+
+      /**
+       * 🔵 REAL SUPABASE MODE
+       */
       const fileExt = file.name.split('.').pop();
       const fileName = `${topicId}/${Date.now()}.${fileExt}`;
       const filePath = `resources/${fileName}`;
@@ -94,19 +140,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
-        Upload {resourceType === 'pyqs' ? 'PYQ' : resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
+        Upload {resourceType === 'pyqs'
+          ? 'PYQ'
+          : resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
       </h3>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
           <p className="text-red-700 text-sm">{error}</p>
         </div>
       )}
 
       {success && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
           <p className="text-green-700 text-sm">Upload successful!</p>
         </div>
       )}
@@ -120,8 +168,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter resource title"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
 
@@ -132,9 +179,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add a brief description (optional)"
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
           />
         </div>
 
@@ -156,7 +202,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             {file ? (
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {file.name}
+                </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -171,7 +219,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             ) : (
               <div>
                 <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
+                <p className="text-sm text-gray-600">
+                  Click to upload or drag and drop
+                </p>
                 <p className="text-xs text-gray-400 mt-1">
                   PDF, PPT, DOC files supported
                 </p>
@@ -184,7 +234,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           <button
             onClick={handleUpload}
             disabled={uploading || !file || !title}
-            className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
           >
             {uploading ? 'Uploading...' : 'Upload'}
           </button>
