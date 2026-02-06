@@ -10,11 +10,12 @@ import { PYQsTab } from './tabs/PYQsTab';
 interface TopicContentProps {
   topic: Topic;
   subject: Subject;
+  activeTab?: 'books' | 'slides' | 'notes' | 'pyqs';
 }
 
 type TabType = 'books' | 'slides' | 'notes' | 'pyqs';
 
-export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) => {
+export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, activeTab = 'books' }) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -99,40 +100,35 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
           </div>
         ) : (
           <div className="h-full overflow-auto p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Books</h3>
-                <BooksTab
-                  resources={getResourcesByType('book')}
-                  topicId={topic.id}
-                  onResourceAdded={fetchResources}
-                />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Slides</h3>
-                <SlidesTab
-                  resources={getResourcesByType('slides')}
-                  topicId={topic.id}
-                  onResourceAdded={fetchResources}
-                />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Notes</h3>
-                <NotesTab
-                  resources={getResourcesByType('notes')}
-                  topicId={topic.id}
-                  onResourceAdded={fetchResources}
-                />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">PYQs</h3>
-                <PYQsTab
-                  resources={getResourcesByType('pyqs')}
-                  topicId={topic.id}
-                  onResourceAdded={fetchResources}
-                />
-              </div>
-            </div>
+            {/* Render only the active tab instead of all sections */}
+            {activeTab === 'books' && (
+              <BooksTab
+                resources={getResourcesByType('book')}
+                topicId={topic.id}
+                onResourceAdded={fetchResources}
+              />
+            )}
+            {activeTab === 'slides' && (
+              <SlidesTab
+                resources={getResourcesByType('slides')}
+                topicId={topic.id}
+                onResourceAdded={fetchResources}
+              />
+            )}
+            {activeTab === 'notes' && (
+              <NotesTab
+                resources={getResourcesByType('notes')}
+                topicId={topic.id}
+                onResourceAdded={fetchResources}
+              />
+            )}
+            {activeTab === 'pyqs' && (
+              <PYQsTab
+                resources={getResourcesByType('pyqs')}
+                topicId={topic.id}
+                onResourceAdded={fetchResources}
+              />
+            )}
           </div>
         )}
       </div>
