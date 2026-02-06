@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Resource } from '@/lib/types';
 
 interface FileUploadProps {
   topicId: string;
@@ -11,12 +12,12 @@ interface FileUploadProps {
 
 const DEMO_STORAGE_KEY = 'demo_resources';
 
-const getDemoResources = (topicId: string) => {
+const getDemoResources = (topicId: string): Resource[] => {
   const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
   return all[topicId] || [];
 };
 
-const setDemoResources = (topicId: string, resources: any[]) => {
+const setDemoResources = (topicId: string, resources: Resource[]) => {
   const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
   all[topicId] = resources;
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(all));

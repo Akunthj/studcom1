@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (stored) {
       try {
         setCustomFolders(JSON.parse(stored));
-      } catch (e) {
+      } catch {
         setCustomFolders([]);
       }
     } else {

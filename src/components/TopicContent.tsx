@@ -13,8 +13,6 @@ interface TopicContentProps {
   activeTab?: 'books' | 'slides' | 'notes' | 'pyqs';
 }
 
-type TabType = 'books' | 'slides' | 'notes' | 'pyqs';
-
 export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, activeTab = 'books' }) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +42,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
 
       // Also fetch demo resources from localStorage
       const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
-      const demoResources = (demoStored[topic.id] || []).map((r: any) => ({
+      const demoResources = (demoStored[topic.id] || []).map((r: Resource) => ({
         id: r.id,
         topic_id: r.topic_id,
         title: r.title,

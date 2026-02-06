@@ -45,7 +45,7 @@ export const PYQsTab: React.FC<PYQsTabProps> = ({
         
         // Remove from localStorage
         const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
-        const topicResources = (demoStored[topicId] || []).filter((r: any) => r.id !== resource.id);
+        const topicResources = (demoStored[topicId] || []).filter((r: Resource) => r.id !== resource.id);
         demoStored[topicId] = topicResources;
         localStorage.setItem('demo_resources', JSON.stringify(demoStored));
         
