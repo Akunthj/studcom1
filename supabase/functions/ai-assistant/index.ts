@@ -227,6 +227,7 @@ Deno.serve(async (req: Request) => {
     const queryEmbedding = await embedQuery(message, geminiApiKey);
 
     // Search for relevant document chunks using the match_documents function
+    // Note: pgvector RPC functions accept embeddings as JSON string format
     const { data: chunks, error: searchError } = await supabase.rpc(
       "match_documents",
       {

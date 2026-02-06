@@ -30,16 +30,23 @@ interface EmbeddingResponse {
 
 // Chunk text into segments with overlap
 function chunkText(text: string, chunkSize = 2000, overlap = 200): string[] {
+  // Validate that overlap is smaller than chunkSize
+  if (overlap >= chunkSize) {
+    throw new Error('Overlap must be smaller than chunk size');
+  }
+
   const chunks: string[] = [];
   let start = 0;
 
   while (start < text.length) {
     const end = Math.min(start + chunkSize, text.length);
     chunks.push(text.slice(start, end));
+    
+    // Move to next chunk with overlap
     start = end - overlap;
     
-    // Prevent infinite loop for very small texts
-    if (start >= text.length - overlap) break;
+    // Prevent infinite loop for very small texts or at the end
+    if (start >= text.length - overlap || end === text.length) break;
   }
 
   return chunks.length > 0 ? chunks : [text];
@@ -92,6 +99,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  let requestBody: RequestBody | null = null;
+
   try {
     // Get Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -104,7 +113,8 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { resourceId, topicId, subjectId, textContent }: RequestBody = await req.json();
+    requestBody = await req.json();
+    const { resourceId, topicId, subjectId, textContent } = requestBody;
 
     if (!resourceId || !topicId || !subjectId || !textContent) {
       return new Response(
@@ -157,7 +167,8 @@ Deno.serve(async (req: Request) => {
       page_number: null, // Can be enhanced later if we extract page numbers
       source_type: resource.type,
       source_title: resource.title,
-      embedding: JSON.stringify(embeddings[index]), // pgvector expects string format
+      // pgvector accepts JSON string format for vector insertion
+      embedding: JSON.stringify(embeddings[index]),
     }));
 
     // Insert chunks in batches (Supabase has a limit on bulk inserts)
@@ -201,9 +212,8 @@ Deno.serve(async (req: Request) => {
     console.error("Error in embed-document:", error);
 
     // Try to update resource status to failed if we have the resourceId
-    try {
-      const body = await req.clone().json();
-      if (body.resourceId) {
+    if (requestBody?.resourceId) {
+      try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -214,10 +224,10 @@ Deno.serve(async (req: Request) => {
             processing_status: "failed",
             error_message: error instanceof Error ? error.message : "Unknown error"
           })
-          .eq("id", body.resourceId);
+          .eq("id", requestBody.resourceId);
+      } catch (updateError) {
+        console.error("Failed to update resource status:", updateError);
       }
-    } catch (updateError) {
-      console.error("Failed to update resource status:", updateError);
     }
 
     return new Response(
