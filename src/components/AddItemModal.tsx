@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { demoStorage } from '@/lib/demoMode';
 import { X, BookOpen, FileText, Bookmark, StickyNote } from 'lucide-react';
 
 interface AddItemModalProps {
@@ -11,7 +12,7 @@ interface AddItemModalProps {
 type ItemType = 'subject' | 'topic' | 'bookmark' | 'note';
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [itemType, setItemType] = useState<ItemType>('subject');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -28,18 +29,28 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }
     try {
       if (itemType === 'subject') {
         const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+        const icons = ['📚', '📖', '📝', '🎓', '🔬', '💻', '🎨', '🌍'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        const randomIcon = icons[Math.floor(Math.random() * icons.length)];
 
-        const { error } = await supabase.from('subjects').insert({
-          name: name.trim(),
-          description: description.trim() || null,
-          color: randomColor,
-          icon: '📚',
-        });
+        if (isDemo) {
+          demoStorage.addSubject({
+            name: name.trim(),
+            description: description.trim() || null,
+            color: randomColor,
+            icon: randomIcon,
+          });
+        } else {
+          const { error } = await supabase.from('subjects').insert({
+            name: name.trim(),
+            description: description.trim() || null,
+            color: randomColor,
+            icon: randomIcon,
+          });
 
-        if (error) throw error;
+          if (error) throw error;
+        }
       } else if (itemType === 'note') {
-        // Store quick note in localStorage for now
         const notes = JSON.parse(localStorage.getItem('studcom:quick_notes') || '[]');
         notes.unshift({
           id: Date.now().toString(),

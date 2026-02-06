@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { demoStorage } from '@/lib/demoMode';
 import { Subject, Topic, Resource } from '@/lib/types';
 import { ChevronRight, ChevronDown, Search, Folder, FileText, Book, Presentation, FileText as NotesIcon, HelpCircle } from 'lucide-react';
 
@@ -21,18 +23,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedTopicId,
   collapsed = false,
 }) => {
+  const { isDemo } = useAuth();
   const [subjects, setSubjects] = useState<SubjectWithTopicsAndResources[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchSubjectsAndTopics();
-  }, []);
+  }, [isDemo]);
 
-  // Load expanded state from localStorage
   useEffect(() => {
     const savedState = localStorage.getItem('studcom:sidebar_expanded_subjects');
-    if (savedState) {
+    if (savedState && subjects.length > 0) {
       try {
         const expandedSubjects = JSON.parse(savedState);
         setSubjects((prev) =>
@@ -51,58 +53,95 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const fetchSubjectsAndTopics = async () => {
     try {
       setLoading(true);
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('*')
-        .order('name');
 
-      if (subjectsError) throw subjectsError;
+      if (isDemo) {
+        const demoSubjects = demoStorage.getSubjects();
+        const demoTopics = demoStorage.getTopics();
+        const demoResources = demoStorage.getResources();
 
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('*')
-        .order('name');
+        const subjectsWithTopics = demoSubjects.map((subject) => ({
+          ...subject,
+          topics: demoTopics.filter((topic) => topic.subject_id === subject.id),
+          resources: [] as Resource[],
+          expanded: false,
+          resourcesExpanded: false,
+        }));
 
-      if (topicsError) throw topicsError;
+        const topicToSubject = new Map<string, string>();
+        demoTopics.forEach((topic) => {
+          topicToSubject.set(topic.id, topic.subject_id);
+        });
 
-      const { data: resourcesData, error: resourcesError } = await supabase
-        .from('resources')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (resourcesError && resourcesError.code !== 'PGRST116') throw resourcesError;
-
-      const subjectsWithTopics = (subjectsData || []).map((subject) => ({
-        ...subject,
-        topics: (topicsData || []).filter((topic) => topic.subject_id === subject.id),
-        resources: [] as Resource[],
-        expanded: false,
-        resourcesExpanded: false,
-      }));
-
-      // Group resources by subject (via topic)
-      const topicToSubject = new Map<string, string>();
-      (topicsData || []).forEach((topic) => {
-        topicToSubject.set(topic.id, topic.subject_id);
-      });
-
-      const subjectResources = new Map<string, Resource[]>();
-      (resourcesData || []).forEach((resource) => {
-        const subjectId = topicToSubject.get(resource.topic_id);
-        if (subjectId) {
-          if (!subjectResources.has(subjectId)) {
-            subjectResources.set(subjectId, []);
+        const subjectResources = new Map<string, Resource[]>();
+        demoResources.forEach((resource) => {
+          const subjectId = topicToSubject.get(resource.topic_id);
+          if (subjectId) {
+            if (!subjectResources.has(subjectId)) {
+              subjectResources.set(subjectId, []);
+            }
+            subjectResources.get(subjectId)!.push(resource);
           }
-          subjectResources.get(subjectId)!.push(resource);
-        }
-      });
+        });
 
-      const finalSubjects = subjectsWithTopics.map((subject) => ({
-        ...subject,
-        resources: subjectResources.get(subject.id) || [],
-      }));
+        const finalSubjects = subjectsWithTopics.map((subject) => ({
+          ...subject,
+          resources: subjectResources.get(subject.id) || [],
+        }));
 
-      setSubjects(finalSubjects);
+        setSubjects(finalSubjects);
+      } else {
+        const { data: subjectsData, error: subjectsError } = await supabase
+          .from('subjects')
+          .select('*')
+          .order('name');
+
+        if (subjectsError) throw subjectsError;
+
+        const { data: topicsData, error: topicsError } = await supabase
+          .from('topics')
+          .select('*')
+          .order('name');
+
+        if (topicsError) throw topicsError;
+
+        const { data: resourcesData, error: resourcesError } = await supabase
+          .from('resources')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (resourcesError && resourcesError.code !== 'PGRST116') throw resourcesError;
+
+        const subjectsWithTopics = (subjectsData || []).map((subject) => ({
+          ...subject,
+          topics: (topicsData || []).filter((topic) => topic.subject_id === subject.id),
+          resources: [] as Resource[],
+          expanded: false,
+          resourcesExpanded: false,
+        }));
+
+        const topicToSubject = new Map<string, string>();
+        (topicsData || []).forEach((topic) => {
+          topicToSubject.set(topic.id, topic.subject_id);
+        });
+
+        const subjectResources = new Map<string, Resource[]>();
+        (resourcesData || []).forEach((resource) => {
+          const subjectId = topicToSubject.get(resource.topic_id);
+          if (subjectId) {
+            if (!subjectResources.has(subjectId)) {
+              subjectResources.set(subjectId, []);
+            }
+            subjectResources.get(subjectId)!.push(resource);
+          }
+        });
+
+        const finalSubjects = subjectsWithTopics.map((subject) => ({
+          ...subject,
+          resources: subjectResources.get(subject.id) || [],
+        }));
+
+        setSubjects(finalSubjects);
+      }
     } catch (error) {
       console.error('Error fetching subjects and topics:', error);
     } finally {
