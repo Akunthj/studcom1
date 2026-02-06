@@ -6,7 +6,7 @@ import { Subject, SubjectWithProgress } from '@/lib/types';
 import { Header } from '@/components/Header';
 import { AddItemModal } from '@/components/AddItemModal';
 import { ExamCalendar } from '@/components/ExamCalendar';
-import { Plus, Minimize2, Maximize2, Search, BookMarked, MessageCircle, BookOpen } from 'lucide-react';
+import { Plus, Minimize2, Maximize2, Search, BookMarked, MessageCircle, BookOpen, X } from 'lucide-react';
 import { demoStorage, isDemoMode } from '@/lib/demoMode';
 
 export const Dashboard: React.FC = () => {
@@ -180,6 +180,49 @@ export const Dashboard: React.FC = () => {
     navigate(`/study?subject=${subject.id}`);
   };
 
+  const handleDeleteSubject = async (subject: Subject) => {
+    if (!confirm(`Are you sure you want to delete "${subject.name}"? This will also delete all topics and resources associated with this subject.`)) {
+      return;
+    }
+
+    try {
+      if (isDemo) {
+        // Delete from demo storage
+        const allSubjects = demoStorage.getSubjects();
+        const updatedSubjects = allSubjects.filter(s => s.id !== subject.id);
+        demoStorage.setSubjects(updatedSubjects);
+
+        // Also delete associated topics
+        const allTopics = demoStorage.getTopics();
+        const updatedTopics = allTopics.filter(t => t.subject_id !== subject.id);
+        demoStorage.setTopics(updatedTopics);
+
+        // Delete associated resources
+        const allResources = demoStorage.getResources();
+        const topicIdsToDelete = allTopics.filter(t => t.subject_id === subject.id).map(t => t.id);
+        const updatedResources = allResources.filter(r => !topicIdsToDelete.includes(r.topic_id));
+        demoStorage.setResources(updatedResources);
+
+        // Refresh the subjects list
+        fetchSubjects();
+      } else {
+        // Delete from Supabase - cascade delete should handle topics and resources
+        const { error } = await supabase
+          .from('subjects')
+          .delete()
+          .eq('id', subject.id);
+
+        if (error) throw error;
+        
+        // Refresh the subjects list
+        fetchSubjects();
+      }
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      alert('Failed to delete subject. Please try again.');
+    }
+  };
+
   const handleAddSubjectSuccess = () => {
     fetchSubjects();
   };
@@ -291,54 +334,70 @@ export const Dashboard: React.FC = () => {
                 {filteredSubjects.map((subject) => (
                   <div
                     key={subject.id}
-                    onClick={() => handleSubjectClick(subject)}
-                    className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer group
+                    className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 group relative
                       ${compactView ? 'p-4' : 'p-5'}
                       transition-all duration-200 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-0.5
                       motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0 motion-reduce:transition-none
                     `}
                   >
-                    <div className="flex items-start gap-3 mb-3">
-                      <div
-                        className={`rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200 motion-reduce:group-hover:scale-100 motion-reduce:transition-none
-                          ${compactView ? 'w-12 h-12 text-2xl' : 'w-14 h-14 text-3xl'}
-                        `}
-                        style={{ backgroundColor: subject.color + '20', color: subject.color }}
-                      >
-                        {subject.icon || '📚'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className={`font-bold text-gray-900 dark:text-white truncate ${compactView ? 'text-base mb-1' : 'text-lg mb-2'}`}>
-                          {subject.name}
-                        </h3>
-                        {subject.description && !compactView && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
-                            {subject.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                          Progress
-                        </span>
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">
-                          {subject.progress_percentage || 0}%
-                        </span>
-                      </div>
-
-                      <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden ${compactView ? 'h-1.5' : 'h-2'}`}>
+                    <div 
+                      onClick={() => handleSubjectClick(subject)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3 mb-3">
                         <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${subject.progress_percentage || 0}%`,
-                            backgroundColor: subject.color,
-                          }}
-                        ></div>
+                          className={`rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200 motion-reduce:group-hover:scale-100 motion-reduce:transition-none
+                            ${compactView ? 'w-12 h-12 text-2xl' : 'w-14 h-14 text-3xl'}
+                          `}
+                          style={{ backgroundColor: subject.color + '20', color: subject.color }}
+                        >
+                          {subject.icon || '📚'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`font-bold text-gray-900 dark:text-white truncate ${compactView ? 'text-base mb-1' : 'text-lg mb-2'}`}>
+                            {subject.name}
+                          </h3>
+                          {subject.description && !compactView && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                              {subject.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            Progress
+                          </span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">
+                            {subject.progress_percentage || 0}%
+                          </span>
+                        </div>
+
+                        <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden ${compactView ? 'h-1.5' : 'h-2'}`}>
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${subject.progress_percentage || 0}%`,
+                              backgroundColor: subject.color,
+                            }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSubject(subject);
+                      }}
+                      className="absolute top-2 right-2 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+                      title="Delete subject"
+                    >
+                      <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    </button>
                   </div>
                 ))}
               </div>
