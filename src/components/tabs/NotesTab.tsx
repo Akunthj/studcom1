@@ -6,12 +6,14 @@ import { FileText, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 interface NotesTabProps {
   resources: Resource[];
   topicId: string;
+  subjectId: string;
   onResourceAdded: () => void;
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({
   resources,
   topicId,
+  subjectId,
   onResourceAdded,
 }) => {
   const [showCreate, setShowCreate] = useState(false);

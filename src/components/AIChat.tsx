@@ -114,6 +114,7 @@ export const AIChat: React.FC<AIChatProps> = ({
         body: JSON.stringify({
           message: userMessage,
           topicName,
+          topicId, // Add topicId for RAG
           chatType: 'doubt',
         }),
       });
