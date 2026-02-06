@@ -28,14 +28,36 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .eq('topic_id', topic.id)
-        .order('created_at', { ascending: false });
+      
+      // Fetch from Supabase if available
+      let supabaseResources: Resource[] = [];
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('topic_id', topic.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setResources(data || []);
+        if (error) throw error;
+        supabaseResources = data || [];
+      }
+
+      // Also fetch demo resources from localStorage
+      const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
+      const demoResources = (demoStored[topic.id] || []).map((r: any) => ({
+        id: r.id,
+        topic_id: r.topic_id,
+        title: r.title,
+        type: r.type,
+        file_url: r.file_url,
+        file_path: r.file_path || null,
+        description: r.description || null,
+        section_id: r.section_id || null,
+        created_at: r.created_at || new Date().toISOString(),
+      }));
+
+      // Merge both sources
+      setResources([...supabaseResources, ...demoResources]);
     } catch (error) {
       console.error('Error fetching resources:', error);
     } finally {

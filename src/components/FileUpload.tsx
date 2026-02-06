@@ -62,16 +62,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       if (!supabase) {
         const existing = getDemoResources(topicId);
 
+        // Create a blob URL so the file can be viewed
+        const blobUrl = URL.createObjectURL(file);
+
         const newResource = {
           id: crypto.randomUUID(),
           topic_id: topicId,
           title,
           description: description || null,
           type: resourceType,
+          file_url: blobUrl,        // blob URL for viewing
+          file_path: null,
           file_name: file.name,
           file_size: file.size,
-          uploaded_at: Date.now(),
-          demo: true,
+          section_id: null,
+          created_at: new Date().toISOString(),
         };
 
         const updated = [...existing, newResource];
