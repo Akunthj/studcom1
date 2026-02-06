@@ -6,6 +6,7 @@ import { Subject, Topic } from '@/lib/types';
 import { Sidebar } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
+import { SubjectEmptyState } from '@/components/SubjectEmptyState';
 import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo, Home, ChevronRight } from 'lucide-react';
 import { TodoPanel } from '@/components/TodoPanel';
 
@@ -220,6 +221,11 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           {children || (
             selectedTopic && selectedSubject ? (
               <TopicContent topic={selectedTopic} subject={selectedSubject} />
+            ) : selectedSubject ? (
+              <SubjectEmptyState 
+                subject={selectedSubject} 
+                onTopicAdded={onTopicSelect ? () => window.location.reload() : undefined}
+              />
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">

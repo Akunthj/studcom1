@@ -98,8 +98,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const fetchResources = async () => {
       if (isDemo) {
-        // For demo mode, we'd need to add resources to demoStorage
-        setResources([]);
+        // Fetch resources from demo storage
+        const allResources = demoStorage.getResources();
+        const topicIds = topics.map(t => t.id);
+        const subjectResources = allResources.filter(r => topicIds.includes(r.topic_id));
+        setResources(subjectResources);
         return;
       }
 
@@ -285,7 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Sidebar Panel (File tree for selected resource type) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="w-80 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
               {resourceTabs.find(t => t.id === activeResourceType)?.label}
