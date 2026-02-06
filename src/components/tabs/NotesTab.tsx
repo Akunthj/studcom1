@@ -82,6 +82,19 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
+      // If it's a demo resource (no file_path, stored in localStorage)
+      if (!resource.file_path) {
+        // Remove from localStorage
+        const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
+        const topicResources = (demoStored[topicId] || []).filter((r: Resource) => r.id !== resource.id);
+        demoStored[topicId] = topicResources;
+        localStorage.setItem('demo_resources', JSON.stringify(demoStored));
+        
+        onResourceAdded();
+        return;
+      }
+
+      // Otherwise, delete from Supabase
       const { error } = await supabase.from('resources').delete().eq('id', resource.id);
 
       if (error) throw error;

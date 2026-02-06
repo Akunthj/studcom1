@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Subject, Topic } from '@/lib/types';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar, ResourceType } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
-import { SubjectEmptyState } from '@/components/SubjectEmptyState';
 import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo, Home, ChevronRight } from 'lucide-react';
 import { TodoPanel } from '@/components/TodoPanel';
 
@@ -35,6 +34,7 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
 
   const [rightPanel, setRightPanel] = useState<'ai' | 'todo' | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [activeResourceType, setActiveResourceType] = useState<ResourceType>('books');
 
   // Persist sidebar state
   useEffect(() => {
@@ -215,17 +215,13 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           }}
           selectedTopicId={selectedTopic?.id}
           collapsed={!sidebarOpen}
+          onActiveResourceTypeChange={setActiveResourceType}
         />
 
         <main className="flex-1 overflow-hidden">
           {children || (
             selectedTopic && selectedSubject ? (
-              <TopicContent topic={selectedTopic} subject={selectedSubject} />
-            ) : selectedSubject ? (
-              <SubjectEmptyState 
-                subject={selectedSubject} 
-                onTopicAdded={onTopicSelect ? () => window.location.reload() : undefined}
-              />
+              <TopicContent topic={selectedTopic} subject={selectedSubject} activeTab={activeResourceType} />
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
@@ -242,12 +238,10 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           )}
         </main>
 
-        {rightPanel === 'ai' && (
+        {rightPanel === 'ai' && selectedTopic && (
           <AIAssistantPanel
-            topic={selectedTopic || undefined}
-            subject={selectedSubject || undefined}
+            topic={selectedTopic}
             onClose={() => setRightPanel(null)}
-            isGeneralHelper={!selectedTopic}
           />
         )}
 
