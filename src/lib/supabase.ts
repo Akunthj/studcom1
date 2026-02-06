@@ -1,14 +1,20 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// src/lib/supabase.ts
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  console.warn('Supabase not configured — running in DEMO MODE');
+if (!supabaseUrl || !supabaseAnonKey) {
+  // Fail fast with a clear message so you don't get cryptic "null.from" errors.
+  throw new Error(
+    "Missing Supabase env vars. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set."
+  );
 }
 
-export { supabase };
+// export the client for the rest of the app
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+// helpful runtime sanity log (remove in production)
+console.log("Supabase client initialized:", !!supabase, {
+  url: supabaseUrl ? "(present)" : "(missing)",
+});
