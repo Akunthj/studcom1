@@ -24,8 +24,9 @@ function writeDemo(all: Record<string, Topic[]>) {
   localStorage.setItem(DEMO_KEY, JSON.stringify(all));
 }
 
-export function useTopics(subjectId?: string) {
+export function useTopics(subjectId?: string | null) {
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!subjectId) {
@@ -33,23 +34,26 @@ export function useTopics(subjectId?: string) {
       return;
     }
 
-    if (!supabase) {
-      const all = readDemo();
-      setTopics(all[subjectId] ?? []);
-      return;
-    }
+    const fetchTopics = async () => {
+      setLoading(true);
+      if (!supabase) {
+        const all = readDemo();
+        setTopics(all[subjectId] ?? []);
+        setLoading(false);
+        return;
+      }
 
-    // TODO: Supabase fetch if needed
-    const fetch = async () => {
-      const { data, error } = await supabase.from('topics').select('*').eq('subject_id', subjectId);
+      const { data, error } = await supabase.from('topics').select('*').eq('subject_id', subjectId).order('created_at', { ascending: false });
       if (error) {
         console.error('useTopics error', error);
         setTopics([]);
       } else {
         setTopics(data ?? []);
       }
+      setLoading(false);
     };
-    fetch();
+
+    fetchTopics();
   }, [subjectId]);
 
   const addTopic = (title: string) => {
@@ -71,9 +75,8 @@ export function useTopics(subjectId?: string) {
       return;
     }
 
-    // supabase insert (if available)
     (async () => {
-      const { data, error } = await supabase.from('topics').insert({ subject_id: subjectId, title }).select().single();
+      const { data, error } = await supabase.from('topics').insert({ subject_id: subjectId, name: title }).select().single();
       if (error) {
         console.error('addTopic error', error);
         return;
@@ -94,8 +97,42 @@ export function useTopics(subjectId?: string) {
       setTopics(arr);
       return;
     }
-    // Supabase toggle logic (optional)
+
+    (async () => {
+      const topic = topics.find(t => t.id === topicId);
+      if (!topic) return;
+      const { error } = await supabase.from('user_progress').upsert({
+        topic_id: topicId,
+        completed: !topic.completed,
+      });
+      if (error) {
+        console.error('toggleComplete error', error);
+        return;
+      }
+      setTopics((t) => t.map((item) => item.id === topicId ? { ...item, completed: !item.completed } : item));
+    })();
   };
 
-  return { topics, addTopic, toggleComplete };
+  const removeTopic = (topicId: string) => {
+    if (!subjectId) return;
+    if (!supabase) {
+      const all = readDemo();
+      const arr = (all[subjectId] ?? []).filter((t) => t.id !== topicId);
+      all[subjectId] = arr;
+      writeDemo(all);
+      setTopics(arr);
+      return;
+    }
+
+    (async () => {
+      const { error } = await supabase.from('topics').delete().eq('id', topicId);
+      if (error) {
+        console.error('removeTopic error', error);
+        return;
+      }
+      setTopics((t) => t.filter((item) => item.id !== topicId));
+    })();
+  };
+
+  return { topics, loading, addTopic, toggleComplete, removeTopic };
 }
