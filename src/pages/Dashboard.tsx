@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { Subject, SubjectWithProgress } from '@/lib/types';
 import { Header } from '@/components/Header';
 import { AddItemModal } from '@/components/AddItemModal';
-import { Plus, Minimize2, Maximize2, Search, BookMarked, Upload, MessageCircle, BookOpen } from 'lucide-react';
+import { ExamCalendar } from '@/components/ExamCalendar';
+import { Plus, Minimize2, Maximize2, Search, BookMarked, MessageCircle, BookOpen } from 'lucide-react';
 import { demoStorage, isDemoMode } from '@/lib/demoMode';
 
 export const Dashboard: React.FC = () => {
@@ -200,6 +201,9 @@ export const Dashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
         <div className="flex flex-col gap-5">
+          {/* Exam Calendar */}
+          <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -231,20 +235,11 @@ export const Dashboard: React.FC = () => {
                 <Minimize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
               )}
             </button>
-
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
-              aria-label="Add new item"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Add</span>
-            </button>
           </div>
 
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Quick Access</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => setShowAddModal(true)}
                 className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
@@ -266,28 +261,7 @@ export const Dashboard: React.FC = () => {
                 </p>
               </button>
 
-              <button
-                onClick={() => document.getElementById('file-upload-input')?.click()}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-purple-50 dark:bg-purple-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <Upload className={`text-purple-600 dark:text-purple-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Import Notes
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Upload PDFs and slides
-                </p>
-              </button>
-
-              <button
+<button
                 onClick={() => navigate('/study')}
                 className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
                   ${compactView ? 'p-4' : 'p-5'}
@@ -398,19 +372,6 @@ export const Dashboard: React.FC = () => {
           onSuccess={handleAddSubjectSuccess}
         />
       )}
-
-      <input
-        id="file-upload-input"
-        type="file"
-        accept=".pdf,.ppt,.pptx"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            alert(`File "${file.name}" selected. This feature will be available in the subject detail page.`);
-          }
-        }}
-      />
     </div>
   );
 };

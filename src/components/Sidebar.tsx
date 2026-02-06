@@ -1,27 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ChevronDown, ChevronRight, Folder, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Folder, FileText, Book, Presentation, HelpCircle, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubject } from '@/contexts/SubjectContext';
 import { demoStorage } from '@/lib/demoMode';
 import { supabase } from '@/lib/supabase';
-import { Subject, Topic } from '@/lib/types';
+import { Subject, Topic, Resource } from '@/lib/types';
 
 interface SidebarProps {
   collapsed?: boolean;
   onTopicSelect?: (topic: Topic) => void;
+  selectedTopicId?: string;
+}
+
+type ResourceType = 'books' | 'slides' | 'notes' | 'pyqs';
+
+interface CustomFolder {
+  id: string;
+  name: string;
+  icon: string;
+  subfolders: CustomFolder[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onTopicSelect,
+  selectedTopicId,
 }) => {
   const { isDemo } = useAuth();
   const { currentSubjectId, setCurrentSubjectId } = useSubject();
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // VSCode-style sidebar state
+  const [activeResourceType, setActiveResourceType] = useState<ResourceType>('books');
+  const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [showAddFolderModal, setShowAddFolderModal] = useState(false);
 
   /* -----------------------------
      FETCH SUBJECTS
@@ -69,6 +87,110 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [currentSubjectId, isDemo]);
 
   /* -----------------------------
+     FETCH RESOURCES FOR TOPICS IN ACTIVE SUBJECT
+  ------------------------------*/
+  useEffect(() => {
+    if (!currentSubjectId || topics.length === 0) {
+      setResources([]);
+      return;
+    }
+
+    const fetchResources = async () => {
+      if (isDemo) {
+        // For demo mode, we'd need to add resources to demoStorage
+        setResources([]);
+        return;
+      }
+
+      const topicIds = topics.map(t => t.id);
+      const { data, error } = await supabase
+        .from('resources')
+        .select('*')
+        .in('topic_id', topicIds);
+
+      if (!error) setResources(data || []);
+    };
+
+    fetchResources();
+  }, [currentSubjectId, topics, isDemo]);
+
+  /* -----------------------------
+     LOAD CUSTOM FOLDERS FROM LOCALSTORAGE
+  ------------------------------*/
+  useEffect(() => {
+    if (!currentSubjectId) {
+      setCustomFolders([]);
+      return;
+    }
+
+    const key = `studcom:custom_sections:${currentSubjectId}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        setCustomFolders(JSON.parse(stored));
+      } catch (e) {
+        setCustomFolders([]);
+      }
+    } else {
+      setCustomFolders([]);
+    }
+  }, [currentSubjectId]);
+
+  /* -----------------------------
+     SAVE CUSTOM FOLDERS TO LOCALSTORAGE
+  ------------------------------*/
+  const saveCustomFolders = (folders: CustomFolder[]) => {
+    if (!currentSubjectId) return;
+    const key = `studcom:custom_sections:${currentSubjectId}`;
+    localStorage.setItem(key, JSON.stringify(folders));
+    setCustomFolders(folders);
+  };
+
+  const addCustomFolder = (name: string, icon: string, parentId?: string) => {
+    const newFolder: CustomFolder = {
+      id: `folder-${Date.now()}`,
+      name,
+      icon,
+      subfolders: [],
+    };
+
+    if (parentId) {
+      // Add as subfolder
+      const addToParent = (folders: CustomFolder[]): CustomFolder[] => {
+        return folders.map(folder => {
+          if (folder.id === parentId) {
+            return { ...folder, subfolders: [...folder.subfolders, newFolder] };
+          }
+          return { ...folder, subfolders: addToParent(folder.subfolders) };
+        });
+      };
+      saveCustomFolders(addToParent(customFolders));
+    } else {
+      // Add as top-level folder
+      saveCustomFolders([...customFolders, newFolder]);
+    }
+  };
+
+  const deleteCustomFolder = (folderId: string) => {
+    const removeFolder = (folders: CustomFolder[]): CustomFolder[] => {
+      return folders
+        .filter(f => f.id !== folderId)
+        .map(f => ({ ...f, subfolders: removeFolder(f.subfolders) }));
+    };
+    saveCustomFolders(removeFolder(customFolders));
+  };
+
+  const toggleFolderExpanded = (folderId: string) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(folderId)) {
+      newExpanded.delete(folderId);
+    } else {
+      newExpanded.add(folderId);
+    }
+    setExpandedFolders(newExpanded);
+  };
+
+  /* -----------------------------
      FILTERED SUBJECTS
   ------------------------------*/
   const filteredSubjects = subjects.filter(subject =>
@@ -77,6 +199,163 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   if (collapsed) return null;
 
+  // VSCode-style view when a subject is active
+  if (currentSubjectId) {
+    const resourceTabs = [
+      { id: 'books' as ResourceType, label: 'Books', icon: Book, color: 'text-blue-600 dark:text-blue-400' },
+      { id: 'slides' as ResourceType, label: 'Slides', icon: Presentation, color: 'text-green-600 dark:text-green-400' },
+      { id: 'notes' as ResourceType, label: 'Notes', icon: FileText, color: 'text-orange-600 dark:text-orange-400' },
+      { id: 'pyqs' as ResourceType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600 dark:text-purple-400' },
+    ];
+
+    const getResourcesByType = (type: string) => {
+      return resources.filter(r => r.type === type);
+    };
+
+    const renderCustomFolder = (folder: CustomFolder, level = 0) => {
+      const isExpanded = expandedFolders.has(folder.id);
+      return (
+        <div key={folder.id} style={{ marginLeft: `${level * 12}px` }}>
+          <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded group">
+            <button
+              onClick={() => toggleFolderExpanded(folder.id)}
+              className="flex items-center gap-2 flex-1 text-left"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-400" />
+              )}
+              <span className="text-sm">{folder.icon}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{folder.name}</span>
+            </button>
+            <button
+              onClick={() => deleteCustomFolder(folder.id)}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
+            >
+              <X className="w-3 h-3 text-red-500" />
+            </button>
+          </div>
+          {isExpanded && folder.subfolders.map(sub => renderCustomFolder(sub, level + 1))}
+        </div>
+      );
+    };
+
+    return (
+      <aside className="h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex">
+        {/* Activity Bar (VSCode-style icon rail) */}
+        <div className="w-12 bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-2 gap-1">
+          {resourceTabs.map(tab => {
+            const Icon = tab.icon;
+            const count = getResourcesByType(tab.id).length;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveResourceType(tab.id)}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg transition relative ${
+                  activeResourceType === tab.id
+                    ? 'bg-white dark:bg-gray-800 shadow-sm'
+                    : 'hover:bg-gray-200 dark:hover:bg-gray-800'
+                }`}
+                title={tab.label}
+              >
+                <Icon className={`w-5 h-5 ${activeResourceType === tab.id ? tab.color : 'text-gray-600 dark:text-gray-400'}`} />
+                {count > 0 && (
+                  <span className="absolute top-0 right-0 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Add Custom Folder Button */}
+          <div className="flex-1" />
+          <button
+            onClick={() => setShowAddFolderModal(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+            title="Add custom folder"
+          >
+            <Plus className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          </button>
+        </div>
+
+        {/* Sidebar Panel (File tree for selected resource type) */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+              {resourceTabs.find(t => t.id === activeResourceType)?.label}
+            </h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {/* Resources grouped by topic */}
+            {topics.map(topic => {
+              const topicResources = getResourcesByType(activeResourceType).filter(r => r.topic_id === topic.id);
+              if (topicResources.length === 0) return null;
+
+              return (
+                <div key={topic.id} className="mb-2">
+                  <button
+                    onClick={() => onTopicSelect?.(topic)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition ${
+                      selectedTopicId === topic.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+                    }`}
+                  >
+                    <Folder className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {topic.name}
+                    </span>
+                  </button>
+
+                  <div className="ml-6 mt-1 space-y-0.5">
+                    {topicResources.map(resource => (
+                      <div
+                        key={resource.id}
+                        className="flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
+                      >
+                        <FileText className="w-3 h-3" />
+                        <span className="truncate">{resource.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Custom Folders */}
+            {customFolders.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 px-2">
+                  Custom Folders
+                </h3>
+                {customFolders.map(folder => renderCustomFolder(folder))}
+              </div>
+            )}
+
+            {getResourcesByType(activeResourceType).length === 0 && customFolders.length === 0 && (
+              <div className="text-center py-8 text-sm text-gray-400">
+                No {resourceTabs.find(t => t.id === activeResourceType)?.label.toLowerCase()} yet
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Add Folder Modal */}
+        {showAddFolderModal && (
+          <AddFolderModal
+            onAdd={(name, icon) => {
+              addCustomFolder(name, icon);
+              setShowAddFolderModal(false);
+            }}
+            onClose={() => setShowAddFolderModal(false)}
+          />
+        )}
+      </aside>
+    );
+  }
+
+  // Default view (all subjects)
   return (
     <aside className="w-64 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       {/* Header */}
@@ -108,7 +387,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* SUBJECT ROW */}
               <button
                 onClick={() => {
-                  setCurrentSubjectId(subject.id);     // 🔑 CORE FIX
+                  setCurrentSubjectId(subject.id);
                   setExpandedSubjectId(isExpanded ? null : subject.id);
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition
@@ -159,5 +438,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
     </aside>
+  );
+};
+
+/* -----------------------------
+   ADD FOLDER MODAL
+------------------------------*/
+interface AddFolderModalProps {
+  onAdd: (name: string, icon: string) => void;
+  onClose: () => void;
+}
+
+const AddFolderModal: React.FC<AddFolderModalProps> = ({ onAdd, onClose }) => {
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState('📁');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onAdd(name.trim(), icon);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add Custom Folder</h3>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Folder Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Extra Materials"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Icon (Emoji)
+            </label>
+            <input
+              type="text"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="📁"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              maxLength={2}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };

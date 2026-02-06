@@ -6,7 +6,7 @@ import { Subject, Topic } from '@/lib/types';
 import { Sidebar } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
-import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo } from 'lucide-react';
+import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo, Home, ChevronRight } from 'lucide-react';
 import { TodoPanel } from '@/components/TodoPanel';
 
 interface StudyLayoutProps {
@@ -64,17 +64,46 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
             )}
           </button>
 
+          {/* Home Button */}
           <button
             onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 hover:opacity-80 transition"
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
+            aria-label="Go to home"
           >
-            <div className="bg-blue-600 dark:bg-blue-500 rounded-lg p-2">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-              Student Companion
-            </span>
+            <Home className="w-4 h-4" />
+            <span>Home</span>
           </button>
+
+          {/* Breadcrumb */}
+          {selectedSubject && (
+            <div className="flex items-center gap-2 text-sm">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Home
+              </button>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <span className="text-gray-900 dark:text-white font-medium">
+                {selectedSubject.name}
+              </span>
+            </div>
+          )}
+
+          {/* Logo (secondary way to go home) */}
+          {!selectedSubject && (
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 hover:opacity-80 transition"
+            >
+              <div className="bg-blue-600 dark:bg-blue-500 rounded-lg p-2">
+                <BookOpen className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                Student Companion
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -178,7 +207,11 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
-          onTopicSelect={onTopicSelect}
+          onTopicSelect={(topic) => {
+            if (onTopicSelect && selectedSubject) {
+              onTopicSelect(topic, selectedSubject);
+            }
+          }}
           selectedTopicId={selectedTopic?.id}
           collapsed={!sidebarOpen}
         />
