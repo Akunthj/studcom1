@@ -90,3 +90,13 @@ export interface StudyStreak {
   last_study_date: string;
   updated_at: string;
 }
+
+export interface Exam {
+  id: string;
+  subject_id: string;
+  subject_name: string;
+  name: string;
+  date: string; // ISO string
+  syllabus: string;
+  created_at: string;
+}

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Subject, Topic, Resource } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Book, Presentation, FileText, HelpCircle } from 'lucide-react';
+import { useResourceType } from '@/contexts/ResourceTypeContext';
+import { demoStorage } from '@/lib/demoMode';
 import { BooksTab } from './tabs/BooksTab';
 import { SlidesTab } from './tabs/SlidesTab';
 import { NotesTab } from './tabs/NotesTab';
@@ -16,10 +17,10 @@ interface TopicContentProps {
 type TabType = 'books' | 'slides' | 'notes' | 'pyqs';
 
 export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('books');
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
+  const { activeResourceType } = useResourceType();
 
   useEffect(() => {
     fetchResources();
@@ -29,14 +30,22 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .eq('topic_id', topic.id)
-        .order('created_at', { ascending: false });
+      
+      if (isDemo) {
+        // Fetch from demo storage
+        const allResources = demoStorage.getResources();
+        const topicResources = allResources.filter(r => r.topic_id === topic.id);
+        setResources(topicResources);
+      } else {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('topic_id', topic.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setResources(data || []);
+        if (error) throw error;
+        setResources(data || []);
+      }
     } catch (error) {
       console.error('Error fetching resources:', error);
     } finally {
@@ -63,13 +72,6 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
     }
   };
 
-  const tabs = [
-    { id: 'books' as TabType, label: 'Books', icon: Book, color: 'text-blue-600 dark:text-blue-400' },
-    { id: 'slides' as TabType, label: 'Slides', icon: Presentation, color: 'text-green-600 dark:text-green-400' },
-    { id: 'notes' as TabType, label: 'Notes', icon: FileText, color: 'text-orange-600 dark:text-orange-400' },
-    { id: 'pyqs' as TabType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600 dark:text-purple-400' },
-  ];
-
   const getResourcesByType = (type: string) => {
     return resources.filter((r) => r.type === type);
   };
@@ -77,7 +79,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="flex items-center gap-2 mb-1">
             <div
               className="w-2 h-2 rounded-full"
@@ -96,38 +98,6 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
             </p>
           )}
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const resourceCount = getResourcesByType(tab.id).length;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
-                  activeTab === tab.id
-                    ? 'bg-gray-900 dark:bg-gray-700 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-                {resourceCount > 0 && (
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      activeTab === tab.id
-                        ? 'bg-white/20'
-                        : 'bg-gray-200 dark:bg-gray-600'
-                    }`}
-                  >
-                    {resourceCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -140,28 +110,28 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
           </div>
         ) : (
           <>
-            {activeTab === 'books' && (
+            {activeResourceType === 'books' && (
               <BooksTab
                 resources={getResourcesByType('book')}
                 topicId={topic.id}
                 onResourceAdded={fetchResources}
               />
             )}
-            {activeTab === 'slides' && (
+            {activeResourceType === 'slides' && (
               <SlidesTab
                 resources={getResourcesByType('slides')}
                 topicId={topic.id}
                 onResourceAdded={fetchResources}
               />
             )}
-            {activeTab === 'notes' && (
+            {activeResourceType === 'notes' && (
               <NotesTab
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
                 onResourceAdded={fetchResources}
               />
             )}
-            {activeTab === 'pyqs' && (
+            {activeResourceType === 'pyqs' && (
               <PYQsTab
                 resources={getResourcesByType('pyqs')}
                 topicId={topic.id}

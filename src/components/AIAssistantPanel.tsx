@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
-import { Topic } from '@/lib/types';
+import { Topic, Subject } from '@/lib/types';
 import { X, Lightbulb, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AIChat } from './AIChat';
 import { ConceptExplainerPanel } from './ConceptExplainerPanel';
 
 interface AIAssistantPanelProps {
-  topic: Topic;
+  topic?: Topic;
+  subject?: Subject;
   onClose: () => void;
+  isGeneralHelper?: boolean;
 }
 
 type AIMode = 'concept_explainer' | 'ai_doubt';
 
-export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({ topic, onClose }) => {
-  const [mode, setMode] = useState<AIMode>('concept_explainer');
+export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({ 
+  topic, 
+  subject,
+  onClose,
+  isGeneralHelper = false 
+}) => {
+  const [mode, setMode] = useState<AIMode>('ai_doubt');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   const modes = [
@@ -24,14 +31,30 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({ topic, onClo
     },
     {
       id: 'ai_doubt' as AIMode,
-      label: 'AI Doubt Assistant',
-      description: 'Ask questions about the selected topic. The AI will provide contextual answers.',
+      label: isGeneralHelper ? 'General AI Helper' : 'AI Doubt Assistant',
+      description: isGeneralHelper 
+        ? 'Ask any questions about studying, learning strategies, or general help'
+        : 'Ask questions about the selected topic. The AI will provide contextual answers.',
       icon: MessageCircle,
     },
   ];
 
   const currentMode = modes.find((m) => m.id === mode)!;
   const CurrentIcon = currentMode.icon;
+
+  // Get context for AI
+  const getContext = () => {
+    if (isGeneralHelper) {
+      return 'General Study Helper - You can ask me anything about studying, learning strategies, time management, or general academic help.';
+    }
+    if (subject && topic) {
+      return `Subject: ${subject.name}${subject.description ? ` - ${subject.description}` : ''}\nTopic: ${topic.name}${topic.description ? ` - ${topic.description}` : ''}`;
+    }
+    if (subject) {
+      return `Subject: ${subject.name}${subject.description ? ` - ${subject.description}` : ''}`;
+    }
+    return '';
+  };
 
   return (
     <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
@@ -127,10 +150,16 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({ topic, onClo
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {mode === 'ai_doubt' ? (
-          <AIChat topicId={topic.id} topicName={topic.name} />
-        ) : (
+        {mode === 'concept_explainer' && topic ? (
           <ConceptExplainerPanel topicId={topic.id} topicName={topic.name} />
+        ) : (
+          <AIChat 
+            topicId={topic?.id} 
+            topicName={topic?.name}
+            subjectName={subject?.name}
+            context={getContext()}
+            isGeneralHelper={isGeneralHelper}
+          />
         )}
       </div>
     </div>

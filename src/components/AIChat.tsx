@@ -5,11 +5,20 @@ import { AIChatMessage } from '@/lib/types';
 import { MessageCircle, Send, Loader2, Trash2, Sparkles } from 'lucide-react';
 
 interface AIChatProps {
-  topicId: string;
-  topicName: string;
+  topicId?: string;
+  topicName?: string;
+  subjectName?: string;
+  context?: string;
+  isGeneralHelper?: boolean;
 }
 
-export const AIChat: React.FC<AIChatProps> = ({ topicId, topicName }) => {
+export const AIChat: React.FC<AIChatProps> = ({ 
+  topicId, 
+  topicName,
+  subjectName,
+  context,
+  isGeneralHelper = false 
+}) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -18,7 +27,11 @@ export const AIChat: React.FC<AIChatProps> = ({ topicId, topicName }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchChatHistory();
+    if (topicId) {
+      fetchChatHistory();
+    } else {
+      setLoadingHistory(false);
+    }
   }, [topicId]);
 
   useEffect(() => {
