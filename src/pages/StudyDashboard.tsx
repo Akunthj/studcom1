@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubject } from '@/contexts/SubjectContext';
 import { supabase } from '@/lib/supabase';
 import { Subject, Topic } from '@/lib/types';
 import { StudyLayout } from '@/layouts/StudyLayout';
@@ -8,6 +9,7 @@ import { demoStorage } from '@/lib/demoMode';
 
 export const StudyDashboard: React.FC = () => {
   const { user, loading: authLoading, isDemo } = useAuth();
+  const { setCurrentSubjectId } = useSubject();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const subjectId = searchParams.get('subject');
@@ -18,8 +20,10 @@ export const StudyDashboard: React.FC = () => {
 
   useEffect(() => {
     if (user && subjectId) {
+      setCurrentSubjectId(subjectId);
       fetchSubjectData();
     } else {
+      setCurrentSubjectId(null);
       setLoading(false);
     }
   }, [user, subjectId, isDemo]);
