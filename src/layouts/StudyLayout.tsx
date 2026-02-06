@@ -242,10 +242,12 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           )}
         </main>
 
-        {rightPanel === 'ai' && selectedTopic && (
+        {rightPanel === 'ai' && (
           <AIAssistantPanel
-            topic={selectedTopic}
+            topic={selectedTopic || undefined}
+            subject={selectedSubject || undefined}
             onClose={() => setRightPanel(null)}
+            isGeneralHelper={!selectedTopic}
           />
         )}
 
