@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -6,7 +6,8 @@ import { Subject, Topic } from '@/lib/types';
 import { Sidebar } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
-import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X } from 'lucide-react';
+import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo } from 'lucide-react';
+import { TodoPanel } from '@/components/TodoPanel';
 
 interface StudyLayoutProps {
   children?: React.ReactNode;
@@ -24,9 +25,20 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
   const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+
+  // Load sidebar state from localStorage
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('studcom:sidebar_collapsed');
+    return saved ? saved !== 'true' : true;
+  });
+
+  const [rightPanel, setRightPanel] = useState<'ai' | 'todo' | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Persist sidebar state
+  useEffect(() => {
+    localStorage.setItem('studcom:sidebar_collapsed', (!sidebarOpen).toString());
+  }, [sidebarOpen]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -42,8 +54,14 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-expanded={sidebarOpen}
           >
-            {sidebarOpen ? <X className="w-5 h-5 text-gray-700 dark:text-gray-300" /> : <Menu className="w-5 h-5 text-gray-700 dark:text-gray-300" />}
+            {sidebarOpen ? (
+              <X className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            ) : (
+              <Menu className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            )}
           </button>
 
           <button
@@ -61,16 +79,33 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setAiPanelOpen(!aiPanelOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
+            onClick={() => setRightPanel(rightPanel === 'ai' ? null : 'ai')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition font-medium ${
+              rightPanel === 'ai'
+                ? 'bg-blue-700 dark:bg-blue-600 text-white'
+                : 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
+            }`}
           >
             <Bot className="w-5 h-5" />
             <span>AI Assistant</span>
           </button>
 
           <button
+            onClick={() => setRightPanel(rightPanel === 'todo' ? null : 'todo')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition font-medium ${
+              rightPanel === 'todo'
+                ? 'bg-green-700 dark:bg-green-600 text-white'
+                : 'bg-green-600 dark:bg-green-500 text-white hover:bg-green-700 dark:hover:bg-green-600'
+            }`}
+          >
+            <ListTodo className="w-5 h-5" />
+            <span>To-Do</span>
+          </button>
+
+          <button
             onClick={toggleTheme}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            aria-label="Toggle theme"
           >
             {isDark ? (
               <Sun className="w-5 h-5 text-gray-300" />
@@ -83,6 +118,8 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="w-9 h-9 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center hover:bg-blue-700 dark:hover:bg-blue-600 transition"
+              aria-label="User menu"
+              aria-expanded={userMenuOpen}
             >
               <span className="text-sm font-bold text-white">{userInitial}</span>
             </button>
@@ -140,12 +177,11 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {sidebarOpen && (
-          <Sidebar
-            onTopicSelect={onTopicSelect}
-            selectedTopicId={selectedTopic?.id}
-          />
-        )}
+        <Sidebar
+          onTopicSelect={onTopicSelect}
+          selectedTopicId={selectedTopic?.id}
+          collapsed={!sidebarOpen}
+        />
 
         <main className="flex-1 overflow-hidden">
           {children || (
@@ -167,11 +203,15 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
           )}
         </main>
 
-        {aiPanelOpen && selectedTopic && (
+        {rightPanel === 'ai' && selectedTopic && (
           <AIAssistantPanel
             topic={selectedTopic}
-            onClose={() => setAiPanelOpen(false)}
+            onClose={() => setRightPanel(null)}
           />
+        )}
+
+        {rightPanel === 'todo' && (
+          <TodoPanel onClose={() => setRightPanel(null)} />
         )}
       </div>
     </div>

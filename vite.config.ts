@@ -5,6 +5,10 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0', // Bind to all network interfaces for device access
+    port: 5173,
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
