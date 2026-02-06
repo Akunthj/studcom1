@@ -108,7 +108,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
         <button
           key={day}
           onClick={() => setSelectedDate(date)}
-          className={`aspect-square p-1 rounded-lg text-sm transition-all ${
+          className={`aspect-square p-0.5 rounded-lg text-xs transition-all ${
             isToday ? 'bg-blue-50 dark:bg-blue-900/30 font-bold' : ''
           } ${
             isSelected ? 'ring-2 ring-blue-500' : ''
@@ -118,8 +118,8 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
         >
           <div className="text-gray-900 dark:text-white">{day}</div>
           {dateExams.length > 0 && (
-            <div className="flex justify-center mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+            <div className="flex justify-center mt-0.5">
+              <div className="w-1 h-1 rounded-full bg-orange-500" />
             </div>
           )}
         </button>
@@ -133,26 +133,26 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
     'July', 'August', 'September', 'October', 'November', 'December'];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Study Suggestion Card */}
       {nearestExam && (
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 dark:from-orange-600 dark:to-red-600 rounded-lg p-6 text-white shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="bg-white/20 rounded-lg p-3">
-              <BookOpen className="w-6 h-6" />
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 dark:from-orange-600 dark:to-red-600 rounded-lg p-4 text-white shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="bg-white/20 rounded-lg p-2">
+              <BookOpen className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold mb-1">📖 Suggested to Study</h3>
-              <p className="text-white/90 mb-2">
+              <h3 className="text-base font-bold mb-1">📖 Suggested to Study</h3>
+              <p className="text-white/90 text-sm mb-2">
                 <strong>{nearestExam.name}</strong> is coming up {getDaysUntil(nearestExam.date) === 0 ? 'today' : `in ${getDaysUntil(nearestExam.date)} ${getDaysUntil(nearestExam.date) === 1 ? 'day' : 'days'}`}
               </p>
-              <p className="text-sm text-white/80 mb-3">
+              <p className="text-xs text-white/80 mb-2">
                 Subject: {nearestExam.subject_name}
               </p>
               {onNavigateToSubject && (
                 <button
                   onClick={() => onNavigateToSubject(nearestExam.subject_id)}
-                  className="bg-white text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-white/90 transition"
+                  className="bg-white text-orange-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/90 transition"
                 >
                   Start Studying →
                 </button>
@@ -163,44 +163,44 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
       )}
 
       {/* Main Calendar */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
             Exam Calendar
           </h2>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-sm font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-xs font-medium"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Add Test
           </button>
         </div>
 
         {/* Calendar Navigation */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
           >
-            <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </button>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
             {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
           </h3>
           <button
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
           >
-            <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 mb-4">
+        {/* Calendar Grid - More compact */}
+        <div className="grid grid-cols-7 gap-0.5 mb-3">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-center text-xs font-semibold text-gray-600 dark:text-gray-400 py-2">
+            <div key={day} className="text-center text-[10px] font-semibold text-gray-600 dark:text-gray-400 py-1">
               {day}
             </div>
           ))}
@@ -209,25 +209,25 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
 
         {/* Selected Date Exams */}
         {selectedDate && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">
               {selectedDate.toDateString()}
             </h4>
             {getExamsForDate(selectedDate).map(exam => (
-              <div key={exam.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-2">
+              <div key={exam.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 mb-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h5 className="font-medium text-gray-900 dark:text-white">{exam.name}</h5>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{exam.subject_name}</p>
+                    <h5 className="text-xs font-medium text-gray-900 dark:text-white">{exam.name}</h5>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400">{exam.subject_name}</p>
                     {exam.syllabus && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{exam.syllabus}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-1">{exam.syllabus}</p>
                     )}
                   </div>
                   <button
                     onClick={() => deleteExam(exam.id)}
                     className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
                   >
-                    <X className="w-4 h-4 text-red-500" />
+                    <X className="w-3 h-3 text-red-500" />
                   </button>
                 </div>
               </div>
@@ -235,20 +235,20 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
           </div>
         )}
 
-        {/* Upcoming Exams List */}
+        {/* Upcoming Exams List - More compact */}
         {upcomingExams.length > 0 && (
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Upcoming Tests</h4>
-            <div className="space-y-2">
-              {upcomingExams.slice(0, 5).map(exam => {
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">Upcoming Tests</h4>
+            <div className="space-y-1.5">
+              {upcomingExams.slice(0, 3).map(exam => {
                 const daysUntil = getDaysUntil(exam.date);
                 return (
-                  <div key={exam.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <div key={exam.id} className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <Clock className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <h5 className="font-medium text-gray-900 dark:text-white truncate">{exam.name}</h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{exam.subject_name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      <h5 className="text-xs font-medium text-gray-900 dark:text-white truncate">{exam.name}</h5>
+                      <p className="text-[10px] text-gray-600 dark:text-gray-400">{exam.subject_name}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-0.5">
                         {new Date(exam.date).toLocaleDateString()} - {
                           daysUntil === 0 ? 'Today' : 
                           daysUntil === 1 ? '1 day to go' : 
@@ -260,7 +260,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
                       onClick={() => deleteExam(exam.id)}
                       className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
                     >
-                      <X className="w-4 h-4 text-red-500" />
+                      <X className="w-3 h-3 text-red-500" />
                     </button>
                   </div>
                 );

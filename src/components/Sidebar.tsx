@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Folder, FileText, Book, Presentation, HelpCircle, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubject } from '@/contexts/SubjectContext';
+import { useResourceType } from '@/contexts/ResourceTypeContext';
 import { demoStorage } from '@/lib/demoMode';
 import { supabase } from '@/lib/supabase';
 import { Subject, Topic, Resource } from '@/lib/types';
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { isDemo } = useAuth();
   const { currentSubjectId, setCurrentSubjectId } = useSubject();
+  const { activeResourceType, setActiveResourceType } = useResourceType();
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -36,7 +38,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   
   // VSCode-style sidebar state
-  const [activeResourceType, setActiveResourceType] = useState<ResourceType>('books');
   const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
