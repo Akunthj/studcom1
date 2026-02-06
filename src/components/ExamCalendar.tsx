@@ -63,8 +63,12 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
   const nearestExam = upcomingExams[0];
 
   const getDaysUntil = (date: string) => {
-    const diff = new Date(date).getTime() - new Date().getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const examDate = new Date(date);
+    examDate.setHours(0, 0, 0, 0);
+    const diff = examDate.getTime() - today.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
   };
 
   // Calendar logic
@@ -140,7 +144,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
             <div className="flex-1">
               <h3 className="text-lg font-bold mb-1">📖 Suggested to Study</h3>
               <p className="text-white/90 mb-2">
-                <strong>{nearestExam.name}</strong> is coming up in {getDaysUntil(nearestExam.date)} days
+                <strong>{nearestExam.name}</strong> is coming up {getDaysUntil(nearestExam.date) === 0 ? 'today' : `in ${getDaysUntil(nearestExam.date)} ${getDaysUntil(nearestExam.date) === 1 ? 'day' : 'days'}`}
               </p>
               <p className="text-sm text-white/80 mb-3">
                 Subject: {nearestExam.subject_name}
@@ -245,7 +249,11 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
                       <h5 className="font-medium text-gray-900 dark:text-white truncate">{exam.name}</h5>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{exam.subject_name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {new Date(exam.date).toLocaleDateString()} - {daysUntil} day{daysUntil !== 1 ? 's' : ''} to go
+                        {new Date(exam.date).toLocaleDateString()} - {
+                          daysUntil === 0 ? 'Today' : 
+                          daysUntil === 1 ? '1 day to go' : 
+                          `${daysUntil} days to go`
+                        }
                       </p>
                     </div>
                     <button

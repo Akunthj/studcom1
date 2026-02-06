@@ -261,7 +261,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Icon className={`w-5 h-5 ${activeResourceType === tab.id ? tab.color : 'text-gray-600 dark:text-gray-400'}`} />
                 {count > 0 && (
-                  <span className="absolute top-0 right-0 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center">
+                  <span 
+                    className="absolute top-0 right-0 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center"
+                    aria-label={`${count} ${tab.label.toLowerCase()}`}
+                  >
                     {count}
                   </span>
                 )}

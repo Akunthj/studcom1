@@ -68,7 +68,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject }) =>
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="mb-2">
+        <div className="mb-3">
           <div className="flex items-center gap-2 mb-1">
             <div
               className="w-2 h-2 rounded-full"
