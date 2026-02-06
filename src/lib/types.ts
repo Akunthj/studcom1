@@ -24,6 +24,8 @@ export interface Resource {
   file_path: string | null;
   description: string | null;
   section_id: string | null;
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  error_message?: string | null;
   created_at: string;
 }
 

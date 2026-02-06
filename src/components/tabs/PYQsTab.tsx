@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabase';
 interface PYQsTabProps {
   resources: Resource[];
   topicId: string;
+  subjectId: string;
   onResourceAdded: () => void;
 }
 
 export const PYQsTab: React.FC<PYQsTabProps> = ({
   resources,
   topicId,
+  subjectId,
   onResourceAdded,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
@@ -125,6 +127,7 @@ export const PYQsTab: React.FC<PYQsTabProps> = ({
         {showUpload && (
           <FileUpload
             topicId={topicId}
+            subjectId={subjectId}
             resourceType="pyqs"
             acceptedTypes=".pdf"
             onSuccess={() => {

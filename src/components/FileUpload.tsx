@@ -1,10 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Resource } from '@/lib/types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface FileUploadProps {
   topicId: string;
+  subjectId?: string; // Add subjectId for RAG
   resourceType: 'book' | 'slides' | 'notes' | 'pyqs';
   onSuccess: () => void;
   acceptedTypes?: string;
@@ -23,13 +28,39 @@ const setDemoResources = (topicId: string, resources: Resource[]) => {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(all));
 };
 
+// Extract text from PDF file
+async function extractPdfText(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      // Type assertion for PDF.js text content items
+      const pageText = textContent.items
+        .map((item) => ('str' in item ? item.str : ''))
+        .join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting PDF text:', error);
+    throw new Error('Failed to extract text from PDF. Please ensure the file is a valid PDF.');
+  }
+}
+
 export const FileUpload: React.FC<FileUploadProps> = ({
   topicId,
+  subjectId,
   resourceType,
   onSuccess,
   acceptedTypes = '.pdf,.ppt,.pptx,.doc,.docx',
 }) => {
   const [uploading, setUploading] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [title, setTitle] = useState('');
@@ -55,6 +86,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
     setUploading(true);
     setError(null);
+    setProcessingStatus('Uploading file...');
 
     try {
       /**
@@ -77,6 +109,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           file_name: file.name,
           file_size: file.size,
           section_id: null,
+          processing_status: 'pending' as const,
           created_at: new Date().toISOString(),
         };
 
@@ -93,12 +126,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       }
 
       /**
-       * 🔵 REAL SUPABASE MODE
+       * 🔵 REAL SUPABASE MODE WITH RAG
        */
       const fileExt = file.name.split('.').pop();
       const fileName = `${topicId}/${Date.now()}.${fileExt}`;
       const filePath = `resources/${fileName}`;
 
+      // Upload file to storage
       const { error: uploadError } = await supabase.storage
         .from('study-resources')
         .upload(filePath, file);
@@ -109,16 +143,66 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         .from('study-resources')
         .getPublicUrl(filePath);
 
-      const { error: dbError } = await supabase.from('resources').insert({
-        topic_id: topicId,
-        title,
-        description: description || null,
-        type: resourceType,
-        file_url: urlData.publicUrl,
-        file_path: filePath,
-      });
+      // Insert resource metadata
+      const { data: insertedResource, error: dbError } = await supabase
+        .from('resources')
+        .insert({
+          topic_id: topicId,
+          title,
+          description: description || null,
+          type: resourceType,
+          file_url: urlData.publicUrl,
+          file_path: filePath,
+          processing_status: 'pending',
+        })
+        .select()
+        .single();
 
       if (dbError) throw dbError;
+
+      // Process PDFs for RAG - extract text and embed
+      if (fileExt?.toLowerCase() === 'pdf' && subjectId) {
+        setProcessingStatus('Extracting text from PDF...');
+        
+        try {
+          const textContent = await extractPdfText(file);
+          
+          if (textContent && textContent.length > 100) {
+            setProcessingStatus('Creating embeddings...');
+            
+            // Call embed-document function
+            const embedUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/embed-document`;
+            const embedResponse = await fetch(embedUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                resourceId: insertedResource.id,
+                topicId,
+                subjectId,
+                textContent,
+              }),
+            });
+
+            if (!embedResponse.ok) {
+              console.error('Failed to embed document:', await embedResponse.text());
+              // Don't fail the upload, just log the error
+              setProcessingStatus('File uploaded, but embedding failed. You can still use it.');
+            } else {
+              setProcessingStatus('Document processed successfully!');
+            }
+          } else {
+            console.warn('PDF text content too short or empty, skipping embedding');
+            setProcessingStatus('File uploaded (no text content detected)');
+          }
+        } catch (pdfError) {
+          console.error('PDF processing error:', pdfError);
+          // Don't fail the upload, just log the error
+          setProcessingStatus('File uploaded, but text extraction failed.');
+        }
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -127,6 +211,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
+      setProcessingStatus('');
     } finally {
       setUploading(false);
     }
@@ -138,6 +223,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setFile(null);
     setSuccess(false);
     setError(null);
+    setProcessingStatus('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -162,6 +248,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
           <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
           <p className="text-green-700 text-sm">Upload successful!</p>
+        </div>
+      )}
+
+      {processingStatus && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+          <Loader2 className="w-5 h-5 text-blue-600 mt-0.5 animate-spin" />
+          <p className="text-blue-700 text-sm">{processingStatus}</p>
         </div>
       )}
 

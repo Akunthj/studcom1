@@ -125,6 +125,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <BooksTab
                 resources={getResourcesByType('book')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
@@ -132,6 +133,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <SlidesTab
                 resources={getResourcesByType('slides')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
@@ -139,6 +141,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <NotesTab
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
@@ -146,6 +149,7 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <PYQsTab
                 resources={getResourcesByType('pyqs')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}

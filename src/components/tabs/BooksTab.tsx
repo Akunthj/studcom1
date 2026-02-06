@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabase';
 interface BooksTabProps {
   resources: Resource[];
   topicId: string;
+  subjectId: string;
   onResourceAdded: () => void;
 }
 
 export const BooksTab: React.FC<BooksTabProps> = ({
   resources,
   topicId,
+  subjectId,
   onResourceAdded,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
@@ -91,6 +93,7 @@ export const BooksTab: React.FC<BooksTabProps> = ({
         {showUpload && (
           <FileUpload
             topicId={topicId}
+            subjectId={subjectId}
             resourceType="book"
             acceptedTypes=".pdf"
             onSuccess={() => {

@@ -45,6 +45,7 @@ export const ConceptExplainerPanel: React.FC<ConceptExplainerPanelProps> = ({
         body: JSON.stringify({
           message: concept,
           topicName,
+          topicId, // Add topicId for RAG
           chatType: 'concept_explainer',
         }),
       });

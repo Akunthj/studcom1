@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabase';
 interface SlidesTabProps {
   resources: Resource[];
   topicId: string;
+  subjectId: string;
   onResourceAdded: () => void;
 }
 
 export const SlidesTab: React.FC<SlidesTabProps> = ({
   resources,
   topicId,
+  subjectId,
   onResourceAdded,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
@@ -91,6 +93,7 @@ export const SlidesTab: React.FC<SlidesTabProps> = ({
         {showUpload && (
           <FileUpload
             topicId={topicId}
+            subjectId={subjectId}
             resourceType="slides"
             acceptedTypes=".pdf,.ppt,.pptx"
             onSuccess={() => {
