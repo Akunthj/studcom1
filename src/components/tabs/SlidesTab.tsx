@@ -23,6 +23,22 @@ export const SlidesTab: React.FC<SlidesTabProps> = ({
     if (!confirm('Are you sure you want to delete this slide deck?')) return;
 
     try {
+      // If it's a demo resource (has blob URL and no file_path)
+      if (resource.file_url?.startsWith('blob:') && !resource.file_path) {
+        // Revoke the blob URL to free memory
+        URL.revokeObjectURL(resource.file_url);
+        
+        // Remove from localStorage
+        const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
+        const topicResources = (demoStored[topicId] || []).filter((r: Resource) => r.id !== resource.id);
+        demoStored[topicId] = topicResources;
+        localStorage.setItem('demo_resources', JSON.stringify(demoStored));
+        
+        onResourceAdded();
+        return;
+      }
+
+      // Otherwise, delete from Supabase
       if (resource.file_path) {
         await supabase.storage.from('study-resources').remove([resource.file_path]);
       }

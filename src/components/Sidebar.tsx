@@ -11,9 +11,12 @@ interface SidebarProps {
   collapsed?: boolean;
   onTopicSelect?: (topic: Topic) => void;
   selectedTopicId?: string;
+  onActiveResourceTypeChange?: (resourceType: ResourceType) => void;
 }
 
 type ResourceType = 'books' | 'slides' | 'notes' | 'pyqs';
+
+export type { ResourceType };
 
 interface CustomFolder {
   id: string;
@@ -26,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onTopicSelect,
   selectedTopicId,
+  onActiveResourceTypeChange,
 }) => {
   const { isDemo } = useAuth();
   const { currentSubjectId, setCurrentSubjectId } = useSubject();
@@ -132,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (stored) {
       try {
         setCustomFolders(JSON.parse(stored));
-      } catch (e) {
+      } catch {
         setCustomFolders([]);
       }
     } else {
@@ -255,7 +259,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveResourceType(tab.id)}
+                onClick={() => {
+                  setActiveResourceType(tab.id);
+                  onActiveResourceTypeChange?.(tab.id);
+                }}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg transition relative ${
                   activeResourceType === tab.id
                     ? 'bg-white dark:bg-gray-800 shadow-sm'
