@@ -148,6 +148,31 @@ export class LocalStorageBackend implements StorageBackend {
   }
 
   /**
+   * Save a new resource (e.g., notes without file)
+   */
+  async saveResource(resource: Omit<Resource, 'id' | 'created_at'>): Promise<Resource> {
+    const newResource: Resource = {
+      id: crypto.randomUUID(),
+      ...resource,
+      created_at: new Date().toISOString(),
+    };
+    await localDB.saveResource(newResource);
+    return newResource;
+  }
+
+  /**
+   * Update an existing resource
+   */
+  async updateResource(resourceId: string, updates: Partial<Resource>): Promise<void> {
+    const resource = await localDB.getResource(resourceId);
+    if (!resource) {
+      throw new Error('Resource not found');
+    }
+    const updatedResource = { ...resource, ...updates };
+    await localDB.saveResource(updatedResource);
+  }
+
+  /**
    * Delete a resource
    */
   async deleteResource(resourceId: string): Promise<void> {

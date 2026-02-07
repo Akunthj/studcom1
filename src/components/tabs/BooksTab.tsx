@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Resource } from '@/lib/types';
+import { storage } from '@/lib/storage';
 import { FileUpload } from '../FileUpload';
 import { PDFViewer } from '../PDFViewer';
 import { Book, Plus, Eye, Download, Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 
 interface BooksTabProps {
   resources: Resource[];
@@ -20,38 +20,42 @@ export const BooksTab: React.FC<BooksTabProps> = ({
 }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Resource | null>(null);
+  const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
 
   const handleDelete = async (resource: Resource) => {
     if (!confirm('Are you sure you want to delete this book?')) return;
 
     try {
-      // If it's a demo resource (has blob URL and no file_path)
-      if (resource.file_url?.startsWith('blob:') && !resource.file_path) {
-        // Revoke the blob URL to free memory
-        URL.revokeObjectURL(resource.file_url);
-        
-        // Remove from localStorage
-        const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
-        const topicResources = (demoStored[topicId] || []).filter((r: Resource) => r.id !== resource.id);
-        demoStored[topicId] = topicResources;
-        localStorage.setItem('demo_resources', JSON.stringify(demoStored));
-        
-        onResourceAdded();
-        return;
+      await storage.deleteResource(resource.id);
+      
+      // Revoke blob URL if it exists
+      if (fileUrls[resource.id]) {
+        URL.revokeObjectURL(fileUrls[resource.id]);
+        const newUrls = { ...fileUrls };
+        delete newUrls[resource.id];
+        setFileUrls(newUrls);
       }
-
-      // Otherwise, delete from Supabase
-      if (resource.file_path) {
-        await supabase.storage.from('study-resources').remove([resource.file_path]);
-      }
-
-      const { error } = await supabase.from('resources').delete().eq('id', resource.id);
-
-      if (error) throw error;
+      
       onResourceAdded();
     } catch (error) {
       console.error('Error deleting book:', error);
       alert('Failed to delete book');
+    }
+  };
+
+  const handleViewBook = async (resource: Resource) => {
+    try {
+      // If we don't have a blob URL yet, get it
+      if (!fileUrls[resource.id]) {
+        const url = await storage.getFileUrl(resource.id);
+        setFileUrls(prev => ({ ...prev, [resource.id]: url }));
+        setSelectedBook({ ...resource, file_url: url });
+      } else {
+        setSelectedBook({ ...resource, file_url: fileUrls[resource.id] });
+      }
+    } catch (error) {
+      console.error('Error loading book:', error);
+      alert('Failed to load book');
     }
   };
 
@@ -141,7 +145,7 @@ export const BooksTab: React.FC<BooksTabProps> = ({
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedBook(resource)}
+                    onClick={() => handleViewBook(resource)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-sm font-medium"
                   >
                     <Eye className="w-4 h-4" />

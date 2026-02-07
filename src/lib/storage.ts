@@ -29,6 +29,8 @@ export interface StorageBackend {
 
   // Resources
   getResources(topicId: string): Promise<Resource[]>;
+  saveResource(resource: Omit<Resource, 'id' | 'created_at'>): Promise<Resource>;
+  updateResource(resourceId: string, updates: Partial<Resource>): Promise<void>;
   deleteResource(resourceId: string): Promise<void>;
 
   // RAG

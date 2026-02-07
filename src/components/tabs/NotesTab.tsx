@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Resource } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { FileText, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 
 interface NotesTabProps {
@@ -30,16 +30,18 @@ export const NotesTab: React.FC<NotesTabProps> = ({
 
     setSaving(true);
     try {
-      const { error } = await supabase.from('resources').insert({
+      await storage.saveResource({
         topic_id: topicId,
         title,
         description: content,
         type: 'notes',
         file_url: null,
         file_path: null,
+        section_id: null,
+        file_name: null,
+        file_size: null,
+        processing_status: null,
       });
-
-      if (error) throw error;
 
       setTitle('');
       setContent('');
@@ -58,15 +60,10 @@ export const NotesTab: React.FC<NotesTabProps> = ({
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('resources')
-        .update({
-          title,
-          description: content,
-        })
-        .eq('id', editingNote.id);
-
-      if (error) throw error;
+      await storage.updateResource(editingNote.id, {
+        title,
+        description: content,
+      });
 
       setEditingNote(null);
       setTitle('');
@@ -84,22 +81,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-      // If it's a demo resource (no file_path, stored in localStorage)
-      if (!resource.file_path) {
-        // Remove from localStorage
-        const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
-        const topicResources = (demoStored[topicId] || []).filter((r: Resource) => r.id !== resource.id);
-        demoStored[topicId] = topicResources;
-        localStorage.setItem('demo_resources', JSON.stringify(demoStored));
-        
-        onResourceAdded();
-        return;
-      }
-
-      // Otherwise, delete from Supabase
-      const { error } = await supabase.from('resources').delete().eq('id', resource.id);
-
-      if (error) throw error;
+      await storage.deleteResource(resource.id);
       onResourceAdded();
     } catch (error) {
       console.error('Error deleting note:', error);

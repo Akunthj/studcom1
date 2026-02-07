@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { storage } from '@/lib/storage';
+import { embedText, generateResponse } from '@/lib/geminiClient';
 import { AIChatMessage } from '@/lib/types';
 import { MessageCircle, Send, Loader2, Trash2, Sparkles } from 'lucide-react';
 
@@ -43,20 +44,12 @@ export const AIChat: React.FC<AIChatProps> = ({
   };
 
   const fetchChatHistory = async () => {
-    if (!user) return;
+    if (!user || !topicId) return;
 
     try {
       setLoadingHistory(true);
-      const { data, error } = await supabase
-        .from('ai_chat_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('topic_id', topicId)
-        .eq('chat_type', 'doubt')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
+      const history = await storage.getChatHistory(topicId, 'doubt');
+      setMessages(history);
     } catch (error) {
       console.error('Error fetching chat history:', error);
     } finally {
@@ -65,7 +58,7 @@ export const AIChat: React.FC<AIChatProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !user || loading) return;
+    if (!input.trim() || !user || loading || !topicId || !topicName) return;
 
     const userMessage = input.trim();
     setInput('');
@@ -85,60 +78,60 @@ export const AIChat: React.FC<AIChatProps> = ({
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const { data: savedUserMsg, error: userError } = await supabase
-        .from('ai_chat_history')
-        .insert({
-          user_id: user.id,
-          topic_id: topicId,
-          message: userMessage,
-          response: null,
-          role: 'user',
-          chat_type: 'doubt',
-        })
-        .select()
-        .single();
-
-      if (userError) throw userError;
+      // Save user message
+      const savedUserMsg = await storage.saveChatMessage({
+        user_id: user.id,
+        topic_id: topicId,
+        message: userMessage,
+        response: null,
+        role: 'user',
+        chat_type: 'doubt',
+      });
 
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempUserMsg.id ? savedUserMsg : msg))
       );
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          topicName,
-          topicId, // Add topicId for RAG
-          chatType: 'doubt',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
+      // Check if Gemini API key is configured
+      if (!import.meta.env.VITE_GEMINI_API_KEY) {
+        throw new Error('VITE_GEMINI_API_KEY not configured. Please set it in your .env file.');
       }
 
-      const { response: aiResponse } = await response.json();
+      // Embed the query
+      const queryEmbedding = await embedText(userMessage);
 
-      const { data: assistantMsg, error: assistantError } = await supabase
-        .from('ai_chat_history')
-        .insert({
-          user_id: user.id,
-          topic_id: topicId,
-          message: aiResponse,
-          response: null,
-          role: 'assistant',
-          chat_type: 'doubt',
-        })
-        .select()
-        .single();
+      // Search for similar chunks
+      const similarChunks = await storage.searchSimilar(queryEmbedding, topicId, 5, 0.7);
 
-      if (assistantError) throw assistantError;
+      // Build context from similar chunks
+      let ragContext = '';
+      if (similarChunks && similarChunks.length > 0) {
+        ragContext = similarChunks
+          .map((chunk, idx) => {
+            return `[Source ${idx + 1}: ${chunk.sourceTitle} (${chunk.sourceType})]
+${chunk.content}
+`;
+          })
+          .join('\n---\n\n');
+      }
+
+      // Generate AI response
+      const aiResponse = await generateResponse(
+        userMessage,
+        ragContext,
+        topicName,
+        'doubt'
+      );
+
+      // Save assistant message
+      const assistantMsg = await storage.saveChatMessage({
+        user_id: user.id,
+        topic_id: topicId,
+        message: aiResponse,
+        response: null,
+        role: 'assistant',
+        chat_type: 'doubt',
+      });
 
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (error) {
@@ -146,24 +139,17 @@ export const AIChat: React.FC<AIChatProps> = ({
       setMessages((prev) =>
         prev.filter((msg) => msg.id !== tempUserMsg.id)
       );
-      alert('Failed to send message. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleClearHistory = async () => {
-    if (!user || !confirm('Clear all chat history for this topic?')) return;
+    if (!user || !topicId || !confirm('Clear all chat history for this topic?')) return;
 
     try {
-      const { error } = await supabase
-        .from('ai_chat_history')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('topic_id', topicId)
-        .eq('chat_type', 'doubt');
-
-      if (error) throw error;
+      await storage.clearChatHistory(topicId, 'doubt', user.id);
       setMessages([]);
     } catch (error) {
       console.error('Error clearing chat history:', error);
