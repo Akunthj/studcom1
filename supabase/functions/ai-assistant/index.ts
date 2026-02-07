@@ -50,7 +50,7 @@ async function embedQuery(query: string, apiKey: string): Promise<number[]> {
   };
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`,
     {
       method: "POST",
       headers: {
@@ -103,7 +103,7 @@ Student's question: ${query}
 Note: No specific study materials are available yet for this topic. Provide general guidance and encourage the student to upload their course materials.`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: {
