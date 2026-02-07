@@ -114,7 +114,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               const embeddings = await embedBatch(chunks);
 
               if (embeddings.length !== chunks.length) {
-                throw new Error('Mismatch between chunks and embeddings count');
+                throw new Error(`Mismatch between chunks (${chunks.length}) and embeddings (${embeddings.length}) count`);
               }
 
               // Save chunks with embeddings

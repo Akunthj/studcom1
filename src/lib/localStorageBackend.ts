@@ -31,7 +31,7 @@ export class LocalStorageBackend implements StorageBackend {
       title,
       description: description || null,
       type: resourceType,
-      file_url: fileId, // Store file ID instead of blob URL
+      file_url: fileId, // Store IndexedDB file ID (not a blob URL - fetched on-demand)
       file_path: null,
       section_id: null,
       processing_status: 'pending',

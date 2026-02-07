@@ -208,11 +208,22 @@ Note: No specific study materials are available yet for this topic. Provide gene
  * Compute cosine similarity between two vectors
  */
 export function cosineSimilarity(a: number[], b: number[]): number {
+  // Validate that both vectors have the same length
+  if (a.length !== b.length) {
+    throw new Error(`Vector length mismatch: ${a.length} !== ${b.length}`);
+  }
+
   let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
     normB += b[i] * b[i];
   }
+
+  // Handle edge case where either vector has zero magnitude
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
