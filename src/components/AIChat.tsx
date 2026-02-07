@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { storage } from '@/lib/storage';
 import { embedText, generateResponse } from '@/lib/geminiClient';
 import { AIChatMessage } from '@/lib/types';
-import { MessageCircle, Send, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { Send, Loader2, Sparkles } from 'lucide-react';
 
 interface AIChatProps {
   topicId?: string;
@@ -149,7 +149,7 @@ ${chunk.content}
     if (!user || !topicId || !confirm('Clear all chat history for this topic?')) return;
 
     try {
-      await storage.clearChatHistory(topicId, 'doubt', user.id);
+      await storage.clearChatHistory(topicId, 'doubt');
       setMessages([]);
     } catch (error) {
       console.error('Error clearing chat history:', error);

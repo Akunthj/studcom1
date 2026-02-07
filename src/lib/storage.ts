@@ -61,7 +61,7 @@ export interface StorageBackend {
   // Chat
   getChatHistory(topicId: string, chatType: string): Promise<AIChatMessage[]>;
   saveChatMessage(msg: Omit<AIChatMessage, 'id' | 'created_at'>): Promise<AIChatMessage>;
-  clearChatHistory(topicId: string, chatType: string, userId: string): Promise<void>;
+  clearChatHistory(topicId: string, chatType: string): Promise<void>;
 
   // Progress & Analytics
   getProgress(userId: string): Promise<UserProgress[]>;

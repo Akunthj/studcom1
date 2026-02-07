@@ -107,7 +107,6 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <NotesTab
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
-                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}

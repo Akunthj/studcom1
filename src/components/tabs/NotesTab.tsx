@@ -6,14 +6,12 @@ import { FileText, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 interface NotesTabProps {
   resources: Resource[];
   topicId: string;
-  subjectId: string;
   onResourceAdded: () => void;
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({
   resources,
   topicId,
-  subjectId,
   onResourceAdded,
 }) => {
   const [showCreate, setShowCreate] = useState(false);
@@ -38,9 +36,6 @@ export const NotesTab: React.FC<NotesTabProps> = ({
         file_url: null,
         file_path: null,
         section_id: null,
-        file_name: null,
-        file_size: null,
-        processing_status: null,
       });
 
       setTitle('');

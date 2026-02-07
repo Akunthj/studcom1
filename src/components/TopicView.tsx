@@ -159,7 +159,6 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               <NotesTab
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
-                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}

@@ -34,8 +34,6 @@ export class LocalStorageBackend implements StorageBackend {
       file_url: fileId, // Store file ID instead of blob URL
       file_path: null,
       section_id: null,
-      file_name: file.name,
-      file_size: file.size,
       processing_status: 'pending',
       created_at: new Date().toISOString(),
     };
@@ -269,7 +267,7 @@ export class LocalStorageBackend implements StorageBackend {
   /**
    * Clear chat history for a topic and chat type
    */
-  async clearChatHistory(topicId: string, chatType: string, userId: string): Promise<void> {
+  async clearChatHistory(topicId: string, chatType: string): Promise<void> {
     await localDB.clearChatHistory(topicId, chatType);
   }
 
