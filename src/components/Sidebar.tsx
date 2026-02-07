@@ -166,7 +166,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setCustomFolders([]);
     }
-    setExpandedFolders(new Set());
   }, [folderStorageKey]);
 
   /* -----------------------------
@@ -375,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         key={resource.id}
         style={{ marginLeft: `${level * 12}px` }}
-        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded cursor-pointer"
+        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:bg-gray-50 dark:focus:bg-gray-700/50 rounded cursor-pointer"
         role="button"
         tabIndex={0}
         onClick={() => handleResourceOpen(resource)}
