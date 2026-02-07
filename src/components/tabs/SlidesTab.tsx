@@ -10,6 +10,8 @@ interface SlidesTabProps {
   topicId: string;
   subjectId: string;
   onResourceAdded: () => void;
+  openResourceId?: string;
+  openResourceToken?: number;
 }
 
 export const SlidesTab: React.FC<SlidesTabProps> = ({
@@ -17,6 +19,8 @@ export const SlidesTab: React.FC<SlidesTabProps> = ({
   topicId,
   subjectId,
   onResourceAdded,
+  openResourceId,
+  openResourceToken,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedSlide, setSelectedSlide] = useState<Resource | null>(null);
@@ -75,6 +79,29 @@ export const SlidesTab: React.FC<SlidesTabProps> = ({
       alert('Failed to load slide');
     }
   };
+
+  useEffect(() => {
+    if (!openResourceId) return;
+    const resource = resources.find((item) => item.id === openResourceId);
+    if (!resource) return;
+
+    const openSelected = async () => {
+      try {
+        if (!fileUrlsRef.current[resource.id]) {
+          const url = await storage.getFileUrl(resource.id);
+          setFileUrls((prev) => ({ ...prev, [resource.id]: url }));
+          setSelectedSlide({ ...resource, file_url: url });
+        } else {
+          setSelectedSlide({ ...resource, file_url: fileUrlsRef.current[resource.id] });
+        }
+      } catch (error) {
+        console.error('Error loading slide:', error);
+        alert('Failed to load slide');
+      }
+    };
+
+    openSelected();
+  }, [openResourceId, openResourceToken, resources]);
 
   if (selectedSlide) {
     return (

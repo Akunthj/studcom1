@@ -6,7 +6,7 @@ import { Subject, SubjectWithProgress } from '@/lib/types';
 import { Header } from '@/components/Header';
 import { AddItemModal } from '@/components/AddItemModal';
 import { ExamCalendar } from '@/components/ExamCalendar';
-import { Plus, Minimize2, Maximize2, Search, BookMarked, MessageCircle, BookOpen, X } from 'lucide-react';
+import { Plus, Minimize2, Maximize2, Search, BookMarked, BookOpen, X } from 'lucide-react';
 import { demoStorage, isDemoMode } from '@/lib/demoMode';
 
 export const Dashboard: React.FC = () => {
@@ -242,10 +242,34 @@ export const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
-        <div className="flex flex-col gap-5">
-          {/* Exam Calendar */}
-          <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+      <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 w-full">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+            {/* Exam Calendar */}
+            <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
+                  ${compactView ? 'p-4' : 'p-5'}
+                `}
+              >
+                <div
+                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
+                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
+                  `}
+                >
+                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
+                </div>
+                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
+                  Add New Subject
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Start tracking a new subject
+                </p>
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
@@ -281,56 +305,9 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Quick Access</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Add New Subject
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Start tracking a new subject
-                </p>
-              </button>
-
-<button
-                onClick={() => navigate('/study')}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-green-50 dark:bg-green-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <MessageCircle className={`text-green-600 dark:text-green-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Ask AI Doubt
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Get instant help
-                </p>
-              </button>
-            </div>
-          </div>
-
-          <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">All Subjects</h2>
             {filteredSubjects.length > 0 ? (
-              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${compactView ? 'gap-3' : 'gap-4'}`}>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 ${compactView ? 'gap-3' : 'gap-4'}`}>
                 {filteredSubjects.map((subject) => (
                   <div
                     key={subject.id}

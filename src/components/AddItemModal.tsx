@@ -45,21 +45,46 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }
 
     try {
       if (isDemo) {
-        demoStorage.addSubject({
+        const newSubject = demoStorage.addSubject({
           name: name.trim(),
           description: description.trim() || null,
           color: selectedColor,
           icon: selectedIcon,
         });
+        const demoTopics = demoStorage.getTopics();
+        demoStorage.setTopics([
+          ...demoTopics,
+          {
+            id: crypto.randomUUID(),
+            subject_id: newSubject.id,
+            name: 'General',
+            description: null,
+            created_at: new Date().toISOString(),
+          },
+        ]);
       } else {
-        const { error } = await supabase.from('subjects').insert({
-          name: name.trim(),
-          description: description.trim() || null,
-          color: selectedColor,
-          icon: selectedIcon,
-        });
+        const { data: subjectData, error } = await supabase
+          .from('subjects')
+          .insert({
+            name: name.trim(),
+            description: description.trim() || null,
+            color: selectedColor,
+            icon: selectedIcon,
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        if (subjectData) {
+          const { error: topicError } = await supabase.from('topics').insert({
+            subject_id: subjectData.id,
+            name: 'General',
+            description: null,
+          });
+
+          if (topicError) throw topicError;
+        }
       }
 
       onSuccess();

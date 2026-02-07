@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Resource } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { FileText, Plus, Edit, Trash2, Save, X } from 'lucide-react';
@@ -7,12 +7,16 @@ interface NotesTabProps {
   resources: Resource[];
   topicId: string;
   onResourceAdded: () => void;
+  openResourceId?: string;
+  openResourceToken?: number;
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({
   resources,
   topicId,
   onResourceAdded,
+  openResourceId,
+  openResourceToken,
 }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [editingNote, setEditingNote] = useState<Resource | null>(null);
@@ -97,6 +101,16 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     setContent('');
     setShowCreate(false);
   };
+
+  useEffect(() => {
+    if (!openResourceId) return;
+    const resource = resources.find((item) => item.id === openResourceId);
+    if (!resource) return;
+    setEditingNote(resource);
+    setTitle(resource.title);
+    setContent(resource.description || '');
+    setShowCreate(false);
+  }, [openResourceId, openResourceToken, resources]);
 
   if (showCreate || editingNote) {
     return (

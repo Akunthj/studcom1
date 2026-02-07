@@ -10,6 +10,8 @@ interface BooksTabProps {
   topicId: string;
   subjectId: string;
   onResourceAdded: () => void;
+  openResourceId?: string;
+  openResourceToken?: number;
 }
 
 export const BooksTab: React.FC<BooksTabProps> = ({
@@ -17,6 +19,8 @@ export const BooksTab: React.FC<BooksTabProps> = ({
   topicId,
   subjectId,
   onResourceAdded,
+  openResourceId,
+  openResourceToken,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Resource | null>(null);
@@ -75,6 +79,29 @@ export const BooksTab: React.FC<BooksTabProps> = ({
       alert('Failed to load book');
     }
   };
+
+  useEffect(() => {
+    if (!openResourceId) return;
+    const resource = resources.find((item) => item.id === openResourceId);
+    if (!resource) return;
+
+    const openSelected = async () => {
+      try {
+        if (!fileUrlsRef.current[resource.id]) {
+          const url = await storage.getFileUrl(resource.id);
+          setFileUrls((prev) => ({ ...prev, [resource.id]: url }));
+          setSelectedBook({ ...resource, file_url: url });
+        } else {
+          setSelectedBook({ ...resource, file_url: fileUrlsRef.current[resource.id] });
+        }
+      } catch (error) {
+        console.error('Error loading book:', error);
+        alert('Failed to load book');
+      }
+    };
+
+    openSelected();
+  }, [openResourceId, openResourceToken, resources]);
 
   if (selectedBook) {
     return (

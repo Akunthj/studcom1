@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Folder, FileText, Book, Presentation, HelpCircle, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubject } from '@/contexts/SubjectContext';
 import { useResourceType } from '@/contexts/ResourceTypeContext';
 import { demoStorage } from '@/lib/demoMode';
+import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Subject, Topic, Resource } from '@/lib/types';
 
@@ -12,11 +13,19 @@ interface SidebarProps {
   onTopicSelect?: (topic: Topic) => void;
   selectedTopicId?: string;
   onActiveResourceTypeChange?: (resourceType: ResourceType) => void;
+  onResourceOpen?: (resource: Resource) => void;
 }
 
 type ResourceType = 'books' | 'slides' | 'notes' | 'pyqs';
 
 export type { ResourceType };
+
+const RESOURCE_TYPE_MAP: Record<Resource['type'], ResourceType> = {
+  book: 'books',
+  slides: 'slides',
+  notes: 'notes',
+  pyqs: 'pyqs',
+};
 
 interface CustomFolder {
   id: string;
@@ -30,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTopicSelect,
   selectedTopicId,
   onActiveResourceTypeChange,
+  onResourceOpen,
 }) => {
   const { isDemo } = useAuth();
   const { currentSubjectId, setCurrentSubjectId } = useSubject();
@@ -45,6 +55,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [showAddTopic, setShowAddTopic] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [addingTopic, setAddingTopic] = useState(false);
+  const [topicError, setTopicError] = useState('');
+
+  const folderStorageKey = currentSubjectId
+    ? `studcom:custom_sections:${currentSubjectId}:${activeResourceType}`
+    : null;
+  const expandedStorageKey = currentSubjectId
+    ? `studcom:custom_sections_expanded:${currentSubjectId}:${activeResourceType}`
+    : null;
 
   /* -----------------------------
      FETCH SUBJECTS
@@ -94,45 +115,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
   /* -----------------------------
      FETCH RESOURCES FOR TOPICS IN ACTIVE SUBJECT
   ------------------------------*/
-  useEffect(() => {
+  const fetchResources = useCallback(async () => {
     if (!currentSubjectId || topics.length === 0) {
       setResources([]);
       return;
     }
 
-    const fetchResources = async () => {
-      if (isDemo) {
-        // Fetch resources from demo storage
-        const allResources = demoStorage.getResources();
-        const topicIds = topics.map(t => t.id);
-        const subjectResources = allResources.filter(r => topicIds.includes(r.topic_id));
-        setResources(subjectResources);
-        return;
-      }
+    try {
+      const resourceLists = await Promise.all(
+        topics.map((topic) => storage.getResources(topic.id))
+      );
+      setResources(resourceLists.flat());
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+      setResources([]);
+    }
+  }, [currentSubjectId, topics]);
 
-      const topicIds = topics.map(t => t.id);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .in('topic_id', topicIds);
+  useEffect(() => {
+    fetchResources();
+  }, [fetchResources]);
 
-      if (!error) setResources(data || []);
+  useEffect(() => {
+    if (!currentSubjectId) return;
+
+    const handleResourcesUpdated = () => {
+      fetchResources();
     };
 
-    fetchResources();
-  }, [currentSubjectId, topics, isDemo]);
+    window.addEventListener('studcom:resources-updated', handleResourcesUpdated);
+    return () => {
+      window.removeEventListener('studcom:resources-updated', handleResourcesUpdated);
+    };
+  }, [currentSubjectId, fetchResources]);
 
   /* -----------------------------
      LOAD CUSTOM FOLDERS FROM LOCALSTORAGE
   ------------------------------*/
   useEffect(() => {
-    if (!currentSubjectId) {
+    if (!folderStorageKey) {
       setCustomFolders([]);
+      setExpandedFolders(new Set());
       return;
     }
 
-    const key = `studcom:custom_sections:${currentSubjectId}`;
-    const stored = localStorage.getItem(key);
+    const stored = localStorage.getItem(folderStorageKey);
     if (stored) {
       try {
         setCustomFolders(JSON.parse(stored));
@@ -142,15 +169,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setCustomFolders([]);
     }
-  }, [currentSubjectId]);
+  }, [folderStorageKey]);
+
+  useEffect(() => {
+    if (!expandedStorageKey) {
+      setExpandedFolders(new Set());
+      return;
+    }
+
+    const stored = localStorage.getItem(expandedStorageKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as string[];
+        setExpandedFolders(new Set(parsed));
+      } catch {
+        setExpandedFolders(new Set());
+      }
+    } else {
+      setExpandedFolders(new Set());
+    }
+  }, [expandedStorageKey]);
+
+  useEffect(() => {
+    if (!expandedStorageKey) return;
+    localStorage.setItem(expandedStorageKey, JSON.stringify(Array.from(expandedFolders)));
+  }, [expandedFolders, expandedStorageKey]);
 
   /* -----------------------------
      SAVE CUSTOM FOLDERS TO LOCALSTORAGE
   ------------------------------*/
   const saveCustomFolders = (folders: CustomFolder[]) => {
-    if (!currentSubjectId) return;
-    const key = `studcom:custom_sections:${currentSubjectId}`;
-    localStorage.setItem(key, JSON.stringify(folders));
+    if (!folderStorageKey) return;
+    localStorage.setItem(folderStorageKey, JSON.stringify(folders));
     setCustomFolders(folders);
   };
 
@@ -198,6 +248,137 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setExpandedFolders(newExpanded);
   };
 
+  const folderOptions = useMemo(() => {
+    const flattenFoldersWithPaths = (
+      folders: CustomFolder[],
+      prefix = ''
+    ): Array<{ id: string; label: string }> => {
+      return folders.flatMap((folder) => {
+        const label = prefix ? `${prefix} / ${folder.name}` : folder.name;
+        return [
+          { id: folder.id, label },
+          ...flattenFoldersWithPaths(folder.subfolders, label),
+        ];
+      });
+    };
+
+    return flattenFoldersWithPaths(customFolders);
+  }, [customFolders]);
+
+  const resourcesByType = useMemo(() => {
+    const buckets: Record<ResourceType, Resource[]> = {
+      books: [],
+      slides: [],
+      notes: [],
+      pyqs: [],
+    };
+
+    resources.forEach((resource) => {
+      const typeKey = RESOURCE_TYPE_MAP[resource.type];
+      buckets[typeKey].push(resource);
+    });
+
+    return buckets;
+  }, [resources]);
+
+  const activeResources = useMemo(
+    () => resourcesByType[activeResourceType] ?? [],
+    [resourcesByType, activeResourceType]
+  );
+
+  const resourcesByTopic = useMemo(() => {
+    const map: Record<string, Resource[]> = {};
+    activeResources.forEach((resource) => {
+      if (resource.section_id) return;
+      if (!map[resource.topic_id]) {
+        map[resource.topic_id] = [];
+      }
+      map[resource.topic_id].push(resource);
+    });
+    return map;
+  }, [activeResources]);
+
+  const resourcesByFolder = useMemo(() => {
+    const map: Record<string, Resource[]> = {};
+    activeResources.forEach((resource) => {
+      if (!resource.section_id) return;
+      if (!map[resource.section_id]) {
+        map[resource.section_id] = [];
+      }
+      map[resource.section_id].push(resource);
+    });
+    return map;
+  }, [activeResources]);
+
+  const handleAddTopic = async () => {
+    if (!newTopicName.trim() || !currentSubjectId) return;
+
+    setAddingTopic(true);
+    setTopicError('');
+
+    try {
+      if (isDemo) {
+        const newTopic: Topic = {
+          id: crypto.randomUUID(),
+          subject_id: currentSubjectId,
+          name: newTopicName.trim(),
+          description: null,
+          created_at: new Date().toISOString(),
+        };
+
+        const allTopics = demoStorage.getTopics();
+        demoStorage.setTopics([...allTopics, newTopic]);
+        setTopics((prev) => [...prev, newTopic]);
+        onTopicSelect?.(newTopic);
+      } else {
+        const { data, error } = await supabase
+          .from('topics')
+          .insert({
+            subject_id: currentSubjectId,
+            name: newTopicName.trim(),
+            description: null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setTopics((prev) => [...prev, data]);
+          onTopicSelect?.(data);
+        }
+      }
+
+      setNewTopicName('');
+      setShowAddTopic(false);
+    } catch (error) {
+      setTopicError(error instanceof Error ? error.message : 'Failed to add topic');
+    } finally {
+      setAddingTopic(false);
+    }
+  };
+
+  const handleResourceOpen = (resource: Resource) => {
+    const topic = topics.find((item) => item.id === resource.topic_id);
+    if (topic) {
+      onTopicSelect?.(topic);
+    }
+    onResourceOpen?.(resource);
+  };
+
+  const handleAssignFolder = async (resource: Resource, folderId: string | null) => {
+    try {
+      await storage.updateResource(resource.id, { section_id: folderId });
+      setResources((prev) =>
+        prev.map((item) => (item.id === resource.id ? { ...item, section_id: folderId } : item))
+      );
+    } catch (error) {
+      console.error('Error updating resource folder:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update folder';
+      alert(message);
+    }
+  };
+
   /* -----------------------------
      FILTERED SUBJECTS
   ------------------------------*/
@@ -216,12 +397,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
       { id: 'pyqs' as ResourceType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600 dark:text-purple-400' },
     ];
 
-    const getResourcesByType = (type: string) => {
-      return resources.filter(r => r.type === type);
-    };
+    const renderResourceRow = (resource: Resource, level = 0) => (
+      <div
+        key={resource.id}
+        style={{ marginLeft: `${level * 12}px` }}
+        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:bg-gray-50 dark:focus:bg-gray-700/50 rounded cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleResourceOpen(resource)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleResourceOpen(resource);
+          }
+        }}
+      >
+        <FileText className="w-3 h-3" />
+        <span className="truncate flex-1">{resource.title}</span>
+        {folderOptions.length > 0 && (
+          <select
+            value={resource.section_id || ''}
+            onChange={(event) => handleAssignFolder(resource, event.target.value || null)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+            className="text-[10px] bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition max-w-[140px]"
+          >
+            <option value="">Unsorted</option>
+            {folderOptions.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    );
 
     const renderCustomFolder = (folder: CustomFolder, level = 0) => {
       const isExpanded = expandedFolders.has(folder.id);
+      const folderResources = resourcesByFolder[folder.id] ?? [];
       return (
         <div key={folder.id} style={{ marginLeft: `${level * 12}px` }}>
           <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded group">
@@ -236,15 +455,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               <span className="text-sm">{folder.icon}</span>
               <span className="text-sm text-gray-700 dark:text-gray-300">{folder.name}</span>
-            </button>
-            <button
-              onClick={() => deleteCustomFolder(folder.id)}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
+              </button>
+              <button
+                onClick={() => deleteCustomFolder(folder.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
             >
               <X className="w-3 h-3 text-red-500" />
-            </button>
-          </div>
-          {isExpanded && folder.subfolders.map(sub => renderCustomFolder(sub, level + 1))}
+              </button>
+            </div>
+          {isExpanded && (
+            <>
+              {folderResources.map((resource) => renderResourceRow(resource, level + 1))}
+              {folder.subfolders.map(sub => renderCustomFolder(sub, level + 1))}
+            </>
+          )}
         </div>
       );
     };
@@ -255,7 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-12 bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-2 gap-1">
           {resourceTabs.map(tab => {
             const Icon = tab.icon;
-            const count = getResourcesByType(tab.id).length;
+            const count = resourcesByType[tab.id]?.length ?? 0;
             return (
               <button
                 key={tab.id}
@@ -296,17 +520,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Sidebar Panel (File tree for selected resource type) */}
         <div className="w-80 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-              {resourceTabs.find(t => t.id === activeResourceType)?.label}
-            </h2>
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                {resourceTabs.find(t => t.id === activeResourceType)?.label}
+              </h2>
+              <button
+                onClick={() => setShowAddTopic((prev) => !prev)}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {showAddTopic ? 'Cancel' : 'Add Topic'}
+              </button>
+            </div>
+            {showAddTopic && (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newTopicName}
+                  onChange={(event) => setNewTopicName(event.target.value)}
+                  placeholder="New topic name"
+                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                />
+                {topicError && (
+                  <p className="text-[11px] text-red-500">{topicError}</p>
+                )}
+                <button
+                  onClick={handleAddTopic}
+                  disabled={addingTopic || !newTopicName.trim()}
+                  className="w-full px-2 py-1.5 text-xs font-medium bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {addingTopic ? 'Adding...' : 'Create Topic'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
             {/* Resources grouped by topic */}
             {topics.map(topic => {
-              const topicResources = getResourcesByType(activeResourceType).filter(r => r.topic_id === topic.id);
-              if (topicResources.length === 0) return null;
+              const topicResources = resourcesByTopic[topic.id] ?? [];
 
               return (
                 <div key={topic.id} className="mb-2">
@@ -322,17 +574,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   </button>
 
-                  <div className="ml-6 mt-1 space-y-0.5">
-                    {topicResources.map(resource => (
-                      <div
-                        key={resource.id}
-                        className="flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
-                      >
-                        <FileText className="w-3 h-3" />
-                        <span className="truncate">{resource.title}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {topicResources.length > 0 ? (
+                    <div className="mt-1 space-y-0.5">
+                      {topicResources.map(resource => renderResourceRow(resource, 1))}
+                    </div>
+                  ) : (
+                    <div className="ml-6 mt-1 text-[11px] text-gray-400">
+                      No files yet
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -347,9 +597,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
 
-            {getResourcesByType(activeResourceType).length === 0 && customFolders.length === 0 && (
+            {activeResources.length === 0 && customFolders.length === 0 && (
               <div className="text-center py-8 text-sm text-gray-400">
                 No {resourceTabs.find(t => t.id === activeResourceType)?.label.toLowerCase()} yet
+              </div>
+            )}
+            {topics.length === 0 && (
+              <div className="text-center py-6 text-xs text-gray-400">
+                No topics yet. Add one to start organizing resources.
               </div>
             )}
           </div>

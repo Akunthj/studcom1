@@ -8,6 +8,12 @@ import { cosineSimilarity } from './geminiClient';
  * Implements all storage operations locally in the browser
  */
 export class LocalStorageBackend implements StorageBackend {
+  private dispatchResourcesUpdated() {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('studcom:resources-updated'));
+    }
+  }
+
   /**
    * Save a file to IndexedDB and create a resource entry
    */
@@ -39,6 +45,7 @@ export class LocalStorageBackend implements StorageBackend {
     };
 
     await localDB.saveResource(resource);
+    this.dispatchResourcesUpdated();
     return resource;
   }
 
@@ -155,6 +162,7 @@ export class LocalStorageBackend implements StorageBackend {
       created_at: new Date().toISOString(),
     };
     await localDB.saveResource(newResource);
+    this.dispatchResourcesUpdated();
     return newResource;
   }
 
@@ -168,6 +176,7 @@ export class LocalStorageBackend implements StorageBackend {
     }
     const updatedResource = { ...resource, ...updates };
     await localDB.saveResource(updatedResource);
+    this.dispatchResourcesUpdated();
   }
 
   /**
@@ -175,6 +184,7 @@ export class LocalStorageBackend implements StorageBackend {
    */
   async deleteResource(resourceId: string): Promise<void> {
     await this.deleteFile(resourceId);
+    this.dispatchResourcesUpdated();
   }
 
   /**
