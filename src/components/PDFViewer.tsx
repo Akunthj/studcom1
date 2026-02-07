@@ -43,7 +43,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, title }) => {
 
   const jumpToPage = () => {
     const parsed = Number(pageInput);
-    if (!Number.isFinite(parsed) || numPages === 0) return;
+    if (!Number.isFinite(parsed) || numPages === 0) {
+      setPageInput(pageNumber.toString());
+      return;
+    }
     const nextPage = Math.min(Math.max(parsed, 1), numPages);
     setPageNumber(nextPage);
   };
