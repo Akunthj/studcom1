@@ -8,6 +8,13 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', // Bind to all network interfaces for device access
     port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   optimizeDeps: {
     exclude: ['lucide-react'],

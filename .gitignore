@@ -21,3 +21,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# ignore server env & temporary uploads
+server/.env
+server/tmp_uploads/
+server/storage/

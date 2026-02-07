@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "tl_dr": { "type": "string" },
+    "summary": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "heading": { "type": "string" },
+          "summary": { "type": "string" },
+          "bullets": { "type": "array", "items": { "type": "string" } },
+          "important_quotes": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["heading", "summary"]
+      }
+    },
+    "action_items": { "type": "array", "items": { "type": "string" } },
+    "questions": { "type": "array", "items": { "type": "string" } },
+    "flashcards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string" },
+          "answer": { "type": "string" }
+        },
+        "required": ["question", "answer"]
+      }
+    }
+  },
+  "required": ["title", "tl_dr", "summary", "sections"]
+}

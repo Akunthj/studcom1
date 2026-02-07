@@ -1,0 +1,177 @@
+/* Notes UI Styles */
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.app header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #efefef;
+}
+
+.app header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.app header p {
+  margin: 8px 0 0 0;
+  color: #666;
+}
+
+.upload-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.upload-box input[type="file"] {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.upload-box button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.upload-box button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.upload-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notes-card {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  margin-top: 20px;
+  box-shadow: 0 6px 18px rgba(12, 20, 30, 0.06);
+}
+
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #efefef;
+}
+
+.notes-header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.notes-header button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.notes-header button:hover {
+  background: #e5e7eb;
+}
+
+.section {
+  margin: 16px 0 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #efefef;
+}
+
+.section h5 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.section p {
+  margin: 0 0 8px 0;
+  line-height: 1.6;
+}
+
+.section ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.section li {
+  margin: 4px 0;
+}
+
+.flashcards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.card {
+  padding: 12px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.error {
+  color: #b91c1c;
+  margin-top: 8px;
+  padding: 8px;
+  background: #fee2e2;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #efefef;
+  text-align: center;
+  color: #666;
+}
+
+main {
+  margin-bottom: 32px;
+}
+
+section {
+  margin-bottom: 24px;
+}
+
+section h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+section h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+}
