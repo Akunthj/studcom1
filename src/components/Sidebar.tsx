@@ -19,6 +19,13 @@ type ResourceType = 'books' | 'slides' | 'notes' | 'pyqs';
 
 export type { ResourceType };
 
+const RESOURCE_TYPE_MAP: Record<Resource['type'], ResourceType> = {
+  book: 'books',
+  slides: 'slides',
+  notes: 'notes',
+  pyqs: 'pyqs',
+};
+
 interface CustomFolder {
   id: string;
   name: string;
@@ -232,14 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     resources.forEach((resource) => {
-      const typeKey =
-        resource.type === 'book'
-          ? 'books'
-          : resource.type === 'slides'
-            ? 'slides'
-            : resource.type === 'notes'
-              ? 'notes'
-              : 'pyqs';
+      const typeKey = RESOURCE_TYPE_MAP[resource.type];
       buckets[typeKey].push(resource);
     });
 
