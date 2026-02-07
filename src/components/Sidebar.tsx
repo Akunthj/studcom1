@@ -365,7 +365,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <select
             value={resource.section_id || ''}
             onChange={(event) => handleAssignFolder(resource, event.target.value || null)}
-            className="text-[10px] bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 transition max-w-[140px]"
+            className="text-[10px] bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition max-w-[140px]"
           >
             <option value="">Unsorted</option>
             {folderOptions.map((folder) => (
