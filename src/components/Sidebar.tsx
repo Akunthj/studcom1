@@ -217,17 +217,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const folderOptions = useMemo(() => {
-    const buildOptions = (folders: CustomFolder[], prefix = ''): Array<{ id: string; label: string }> => {
+    const flattenFoldersWithPaths = (
+      folders: CustomFolder[],
+      prefix = ''
+    ): Array<{ id: string; label: string }> => {
       return folders.flatMap((folder) => {
         const label = prefix ? `${prefix} / ${folder.name}` : folder.name;
         return [
           { id: folder.id, label },
-          ...buildOptions(folder.subfolders, label),
+          ...flattenFoldersWithPaths(folder.subfolders, label),
         ];
       });
     };
 
-    return buildOptions(customFolders);
+    return flattenFoldersWithPaths(customFolders);
   }, [customFolders]);
 
   const resourcesByType = useMemo(() => {
@@ -331,7 +334,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       );
     } catch (error) {
       console.error('Error updating resource folder:', error);
-      alert('Failed to update folder');
+      const message = error instanceof Error ? error.message : 'Failed to update folder';
+      alert(message);
     }
   };
 

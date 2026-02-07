@@ -47,8 +47,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, title }) => {
       setPageInput(pageNumber.toString());
       return;
     }
-    const nextPage = Math.min(Math.max(parsed, 1), numPages);
-    setPageNumber(nextPage);
+    const targetPage = Math.min(Math.max(parsed, 1), numPages);
+    setPageNumber(targetPage);
   };
 
   return (
