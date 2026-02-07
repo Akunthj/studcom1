@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Resource } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { FileUpload } from '../FileUpload';
@@ -21,6 +21,17 @@ export const BooksTab: React.FC<BooksTabProps> = ({
   const [showUpload, setShowUpload] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Resource | null>(null);
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    return () => {
+      // Clean up all blob URLs when component unmounts
+      Object.values(fileUrls).forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [fileUrls]);
 
   const handleDelete = async (resource: Resource) => {
     if (!confirm('Are you sure you want to delete this book?')) return;

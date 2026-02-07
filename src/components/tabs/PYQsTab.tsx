@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Resource } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { FileUpload } from '../FileUpload';
@@ -22,6 +22,17 @@ export const PYQsTab: React.FC<PYQsTabProps> = ({
   const [selectedPYQ, setSelectedPYQ] = useState<Resource | null>(null);
   const [filterYear, setFilterYear] = useState<string>('all');
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    return () => {
+      // Clean up all blob URLs when component unmounts
+      Object.values(fileUrls).forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [fileUrls]);
 
   const extractYear = (title: string): string => {
     const yearMatch = title.match(/\b(19|20)\d{2}\b/);

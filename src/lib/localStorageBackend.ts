@@ -152,8 +152,8 @@ export class LocalStorageBackend implements StorageBackend {
    */
   async saveResource(resource: Omit<Resource, 'id' | 'created_at'>): Promise<Resource> {
     const newResource: Resource = {
-      id: crypto.randomUUID(),
       ...resource,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     await localDB.saveResource(newResource);
