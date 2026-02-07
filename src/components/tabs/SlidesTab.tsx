@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Resource } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { FileUpload } from '../FileUpload';
@@ -21,17 +21,23 @@ export const SlidesTab: React.FC<SlidesTabProps> = ({
   const [showUpload, setShowUpload] = useState(false);
   const [selectedSlide, setSelectedSlide] = useState<Resource | null>(null);
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+  const fileUrlsRef = useRef<Record<string, string>>({});
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    fileUrlsRef.current = fileUrls;
+  }, [fileUrls]);
 
   useEffect(() => {
     return () => {
       // Clean up all blob URLs when component unmounts
-      Object.values(fileUrls).forEach(url => {
+      Object.values(fileUrlsRef.current).forEach(url => {
         if (url.startsWith('blob:')) {
           URL.revokeObjectURL(url);
         }
       });
     };
-  }, [fileUrls]);
+  }, []);
 
   const handleDelete = async (resource: Resource) => {
     if (!confirm('Are you sure you want to delete this slide deck?')) return;
