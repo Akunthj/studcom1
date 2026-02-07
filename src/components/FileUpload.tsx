@@ -106,29 +106,31 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               console.warn('VITE_GEMINI_API_KEY not configured, skipping embeddings');
               setProcessingStatus('File uploaded (AI features unavailable - set VITE_GEMINI_API_KEY)');
             } else {
-              // Chunk the text
-              const chunks = chunkText(textContent);
-              console.log(`Created ${chunks.length} chunks for resource ${resource.id}`);
-
-              // Embed chunks using Gemini
-              const embeddings = await embedBatch(chunks);
-
-              if (embeddings.length !== chunks.length) {
-                throw new Error(`Mismatch between chunks (${chunks.length}) and embeddings (${embeddings.length}) count`);
+              try {
+                const chunks = chunkText(textContent).filter((c) => c?.trim());
+                if (chunks.length === 0) {
+                  setProcessingStatus('File uploaded (no text chunks to index)');
+                } else {
+                  console.log(`Created ${chunks.length} chunks for resource ${resource.id}`);
+                  const embeddings = await embedBatch(chunks);
+                  if (embeddings.length !== chunks.length) {
+                    setProcessingStatus('File uploaded (AI indexing skipped)');
+                  } else {
+                    const chunksData = chunks.map((chunk, index) => ({
+                      content: chunk,
+                      embedding: embeddings[index],
+                      chunkIndex: index,
+                      sourceType: resourceType,
+                      sourceTitle: title,
+                    }));
+                    await storage.saveChunks(resource.id, topicId, subjectId, chunksData);
+                    setProcessingStatus('Document processed successfully!');
+                  }
+                }
+              } catch (embedError) {
+                console.warn('Embedding failed, saving upload without AI index:', embedError);
+                setProcessingStatus('File uploaded (AI indexing failed – you can still use the file)');
               }
-
-              // Save chunks with embeddings
-              const chunksData = chunks.map((chunk, index) => ({
-                content: chunk,
-                embedding: embeddings[index],
-                chunkIndex: index,
-                sourceType: resourceType,
-                sourceTitle: title,
-              }));
-
-              await storage.saveChunks(resource.id, topicId, subjectId, chunksData);
-              
-              setProcessingStatus('Document processed successfully!');
             }
           } else {
             console.warn('PDF text content too short or empty, skipping embedding');

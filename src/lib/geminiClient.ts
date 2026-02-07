@@ -5,26 +5,29 @@
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const EMBEDDING_MODEL = 'models/gemini-embedding-001';
-const CHAT_MODEL = 'models/gemini-2.0-flash';
+// Use Gemini 2.5 Flash as primary model; fallback to previous flash-exp if needed
+const CHAT_MODEL = 'models/gemini-2.5-flash';
+const CHAT_MODEL_FALLBACK = 'models/gemini-2.0-flash-exp';
 
 interface EmbeddingRequest {
   model: string;
   content: {
     parts: Array<{ text: string }>;
   };
-  taskType: string;
+  task_type: string;
+  output_dimensionality?: number;
 }
 
+/** API can return singular "embedding" or "embeddings" array */
 interface EmbeddingResponse {
-  embedding: {
-    values: number[];
-  };
+  embedding?: { values: number[] };
+  embeddings?: Array<{ values: number[] }>;
+  error?: { message?: string; code?: number };
 }
 
 interface BatchEmbeddingResponse {
-  embeddings: Array<{
-    values: number[];
-  }>;
+  embeddings?: Array<{ values: number[] }>;
+  error?: { message?: string };
 }
 
 /**
@@ -52,20 +55,45 @@ export function chunkText(text: string, chunkSize = 2000, overlap = 200): string
   return chunks.length > 0 ? chunks : [text];
 }
 
+const EMBEDDING_DIM = 768;
+
 /**
- * Embed a single text using Gemini API
+ * Parse embedding from API response (supports both "embedding" and "embeddings" shapes).
+ */
+function parseEmbeddingResponse(data: EmbeddingResponse): number[] {
+  if (data.error?.message) {
+    throw new Error(data.error.message);
+  }
+  if (data.embedding?.values?.length) {
+    return data.embedding.values;
+  }
+  if (data.embeddings?.length && data.embeddings[0].values?.length) {
+    return data.embeddings[0].values;
+  }
+  throw new Error(data.error?.message || 'No embedding in response');
+}
+
+/**
+ * Embed a single text using Gemini API.
+ * Returns a zero vector if text is empty (so search works with no uploads without calling the API).
  */
 export async function embedText(text: string): Promise<number[]> {
   if (!GEMINI_API_KEY) {
     throw new Error('VITE_GEMINI_API_KEY not configured');
   }
 
+  const trimmed = text?.trim() ?? '';
+  if (!trimmed) {
+    return new Array(EMBEDDING_DIM).fill(0);
+  }
+
   const request: EmbeddingRequest = {
     model: EMBEDDING_MODEL,
     content: {
-      parts: [{ text }],
+      parts: [{ text: trimmed }],
     },
-    taskType: 'RETRIEVAL_QUERY',
+    task_type: 'RETRIEVAL_QUERY',
+    output_dimensionality: EMBEDDING_DIM,
   };
 
   const response = await fetch(
@@ -79,55 +107,79 @@ export async function embedText(text: string): Promise<number[]> {
     }
   );
 
+  const data: EmbeddingResponse = await response.json();
+
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Embedding API error: ${response.status} - ${error}`);
+    const msg = data.error?.message || (typeof data === 'object' ? JSON.stringify(data) : String(data));
+    throw new Error(`Embedding API error: ${response.status} - ${msg}`);
   }
 
-  const data: EmbeddingResponse = await response.json();
-  return data.embedding.values;
+  return parseEmbeddingResponse(data);
 }
 
 /**
- * Embed multiple texts in batch using Gemini API
+ * Embed multiple texts in batch using Gemini API.
+ * Skips empty strings (returns zero vectors for them so order/length is preserved).
  */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (!GEMINI_API_KEY) {
     throw new Error('VITE_GEMINI_API_KEY not configured');
   }
 
-  const BATCH_SIZE = 100; // Gemini allows up to 100 requests per batch
+  if (!texts?.length) {
+    return [];
+  }
+
+  const zeroVector = (): number[] => new Array(EMBEDDING_DIM).fill(0);
+  const BATCH_SIZE = 100;
   const embeddings: number[][] = [];
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, Math.min(i + BATCH_SIZE, texts.length));
-    
-    const requests: EmbeddingRequest[] = batch.map((text) => ({
+    const nonEmpty = batch.map((t) => (t?.trim() ?? '')).filter(Boolean);
+    if (nonEmpty.length === 0) {
+      batch.forEach(() => embeddings.push(zeroVector()));
+      continue;
+    }
+
+    const requests: EmbeddingRequest[] = nonEmpty.map((text) => ({
       model: EMBEDDING_MODEL,
       content: {
         parts: [{ text }],
       },
-      taskType: 'RETRIEVAL_DOCUMENT',
+      task_type: 'RETRIEVAL_DOCUMENT',
+      output_dimensionality: EMBEDDING_DIM,
     }));
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${EMBEDDING_MODEL}:batchEmbedContents?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requests }),
       }
     );
 
+    const data: BatchEmbeddingResponse = await response.json();
+
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Batch embedding API error: ${response.status} - ${error}`);
+      const msg = data.error?.message || (typeof data === 'object' ? JSON.stringify(data) : String(data));
+      throw new Error(`Batch embedding API error: ${response.status} - ${msg}`);
     }
 
-    const data: BatchEmbeddingResponse = await response.json();
-    embeddings.push(...data.embeddings.map((e) => e.values));
+    const values = data.embeddings?.map((e) => e.values) ?? [];
+    if (values.length !== nonEmpty.length) {
+      batch.forEach(() => embeddings.push(zeroVector()));
+      continue;
+    }
+    let vi = 0;
+    batch.forEach((t) => {
+      if (t?.trim()) {
+        embeddings.push(values[vi++]);
+      } else {
+        embeddings.push(zeroVector());
+      }
+    });
   }
 
   return embeddings;
@@ -171,32 +223,38 @@ Student's question: ${query}
 
 Note: No specific study materials are available yet for this topic. Provide general guidance and encourage the student to upload their course materials.`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/${CHAT_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }],
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
-      }),
-    }
-  );
+  const payload = {
+    contents: [{
+      parts: [{ text: prompt }],
+    }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1024,
+    },
+  };
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+  const tryModel = async (model: string) => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    return { ok: res.ok, status: res.status, body: await res.text() };
+  };
+
+  let result = await tryModel(CHAT_MODEL);
+  if (!result.ok && result.status === 404) {
+    result = await tryModel(CHAT_MODEL_FALLBACK);
   }
 
-  const data = await response.json();
-  
+  if (!result.ok) {
+    throw new Error(`Gemini API error: ${result.status} - ${result.body}`);
+  }
+
+  const data = JSON.parse(result.body);
   if (!data.candidates || data.candidates.length === 0) {
     throw new Error('No response from Gemini');
   }
