@@ -223,6 +223,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return buildOptions(customFolders);
   }, [customFolders]);
 
+  const resourcesByType = useMemo(() => {
+    const buckets: Record<ResourceType, Resource[]> = {
+      books: [],
+      slides: [],
+      notes: [],
+      pyqs: [],
+    };
+
+    resources.forEach((resource) => {
+      const typeKey =
+        resource.type === 'book'
+          ? 'books'
+          : resource.type === 'slides'
+            ? 'slides'
+            : resource.type === 'notes'
+              ? 'notes'
+              : 'pyqs';
+      buckets[typeKey].push(resource);
+    });
+
+    return buckets;
+  }, [resources]);
+
+  const activeResources = useMemo(
+    () => resourcesByType[activeResourceType] ?? [],
+    [resourcesByType, activeResourceType]
+  );
+
+  const resourcesByTopic = useMemo(() => {
+    const map: Record<string, Resource[]> = {};
+    activeResources.forEach((resource) => {
+      if (resource.section_id) return;
+      if (!map[resource.topic_id]) {
+        map[resource.topic_id] = [];
+      }
+      map[resource.topic_id].push(resource);
+    });
+    return map;
+  }, [activeResources]);
+
+  const resourcesByFolder = useMemo(() => {
+    const map: Record<string, Resource[]> = {};
+    activeResources.forEach((resource) => {
+      if (!resource.section_id) return;
+      if (!map[resource.section_id]) {
+        map[resource.section_id] = [];
+      }
+      map[resource.section_id].push(resource);
+    });
+    return map;
+  }, [activeResources]);
+
   const handleAddTopic = async () => {
     if (!newTopicName.trim() || !currentSubjectId) return;
 
@@ -301,10 +353,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       { id: 'pyqs' as ResourceType, label: 'PYQs', icon: HelpCircle, color: 'text-purple-600 dark:text-purple-400' },
     ];
 
-    const getResourcesByType = (type: string) => {
-      return resources.filter(r => r.type === type);
-    };
-
     const renderResourceRow = (resource: Resource, level = 0) => (
       <div
         key={resource.id}
@@ -332,9 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const renderCustomFolder = (folder: CustomFolder, level = 0) => {
       const isExpanded = expandedFolders.has(folder.id);
-      const folderResources = getResourcesByType(activeResourceType).filter(
-        (resource) => resource.section_id === folder.id
-      );
+      const folderResources = resourcesByFolder[folder.id] ?? [];
       return (
         <div key={folder.id} style={{ marginLeft: `${level * 12}px` }}>
           <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded group">
@@ -373,7 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-12 bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-2 gap-1">
           {resourceTabs.map(tab => {
             const Icon = tab.icon;
-            const count = getResourcesByType(tab.id).length;
+            const count = resourcesByType[tab.id]?.length ?? 0;
             return (
               <button
                 key={tab.id}
@@ -452,9 +498,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex-1 overflow-y-auto p-2">
             {/* Resources grouped by topic */}
             {topics.map(topic => {
-              const topicResources = getResourcesByType(activeResourceType).filter(
-                r => r.topic_id === topic.id && !r.section_id
-              );
+              const topicResources = resourcesByTopic[topic.id] ?? [];
               if (topicResources.length === 0) return null;
 
               return (
@@ -488,7 +532,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
 
-            {getResourcesByType(activeResourceType).length === 0 && customFolders.length === 0 && (
+            {activeResources.length === 0 && customFolders.length === 0 && (
               <div className="text-center py-8 text-sm text-gray-400">
                 No {resourceTabs.find(t => t.id === activeResourceType)?.label.toLowerCase()} yet
               </div>
