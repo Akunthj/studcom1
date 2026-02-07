@@ -4,8 +4,8 @@
  */
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const EMBEDDING_MODEL = 'models/text-embedding-004';
-const CHAT_MODEL = 'models/gemini-2.0-flash-exp';
+const EMBEDDING_MODEL = 'models/gemini-embedding-001';
+const CHAT_MODEL = 'models/gemini-2.0-flash';
 
 interface EmbeddingRequest {
   model: string;
