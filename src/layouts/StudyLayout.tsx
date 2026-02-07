@@ -241,6 +241,7 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
         {rightPanel === 'ai' && selectedTopic && (
           <AIAssistantPanel
             topic={selectedTopic}
+            subject={selectedSubject || undefined}
             onClose={() => setRightPanel(null)}
           />
         )}

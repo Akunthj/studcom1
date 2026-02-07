@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Folder, FileText, Book, Presentation, HelpCircle, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubject } from '@/contexts/SubjectContext';
 import { useResourceType } from '@/contexts/ResourceTypeContext';
 import { demoStorage } from '@/lib/demoMode';
+import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Subject, Topic, Resource } from '@/lib/types';
 
@@ -45,6 +46,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [showAddTopic, setShowAddTopic] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [addingTopic, setAddingTopic] = useState(false);
+  const [topicError, setTopicError] = useState('');
 
   /* -----------------------------
      FETCH SUBJECTS
@@ -94,33 +99,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   /* -----------------------------
      FETCH RESOURCES FOR TOPICS IN ACTIVE SUBJECT
   ------------------------------*/
-  useEffect(() => {
+  const fetchResources = useCallback(async () => {
     if (!currentSubjectId || topics.length === 0) {
       setResources([]);
       return;
     }
 
-    const fetchResources = async () => {
-      if (isDemo) {
-        // Fetch resources from demo storage
-        const allResources = demoStorage.getResources();
-        const topicIds = topics.map(t => t.id);
-        const subjectResources = allResources.filter(r => topicIds.includes(r.topic_id));
-        setResources(subjectResources);
-        return;
-      }
+    try {
+      const resourceLists = await Promise.all(
+        topics.map((topic) => storage.getResources(topic.id))
+      );
+      setResources(resourceLists.flat());
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+      setResources([]);
+    }
+  }, [currentSubjectId, topics]);
 
-      const topicIds = topics.map(t => t.id);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .in('topic_id', topicIds);
+  useEffect(() => {
+    fetchResources();
+  }, [fetchResources]);
 
-      if (!error) setResources(data || []);
+  useEffect(() => {
+    if (!currentSubjectId) return;
+
+    const handleResourcesUpdated = () => {
+      fetchResources();
     };
 
-    fetchResources();
-  }, [currentSubjectId, topics, isDemo]);
+    window.addEventListener('studcom:resources-updated', handleResourcesUpdated);
+    return () => {
+      window.removeEventListener('studcom:resources-updated', handleResourcesUpdated);
+    };
+  }, [currentSubjectId, fetchResources]);
 
   /* -----------------------------
      LOAD CUSTOM FOLDERS FROM LOCALSTORAGE
@@ -198,6 +209,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setExpandedFolders(newExpanded);
   };
 
+  const folderOptions = useMemo(() => {
+    const buildOptions = (folders: CustomFolder[], prefix = ''): Array<{ id: string; label: string }> => {
+      return folders.flatMap((folder) => {
+        const label = prefix ? `${prefix} / ${folder.name}` : folder.name;
+        return [
+          { id: folder.id, label },
+          ...buildOptions(folder.subfolders, label),
+        ];
+      });
+    };
+
+    return buildOptions(customFolders);
+  }, [customFolders]);
+
+  const handleAddTopic = async () => {
+    if (!newTopicName.trim() || !currentSubjectId) return;
+
+    setAddingTopic(true);
+    setTopicError('');
+
+    try {
+      if (isDemo) {
+        const newTopic: Topic = {
+          id: `topic-${Date.now()}`,
+          subject_id: currentSubjectId,
+          name: newTopicName.trim(),
+          description: null,
+          created_at: new Date().toISOString(),
+        };
+
+        const allTopics = demoStorage.getTopics();
+        demoStorage.setTopics([...allTopics, newTopic]);
+        setTopics((prev) => [...prev, newTopic]);
+        onTopicSelect?.(newTopic);
+      } else {
+        const { data, error } = await supabase
+          .from('topics')
+          .insert({
+            subject_id: currentSubjectId,
+            name: newTopicName.trim(),
+            description: null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setTopics((prev) => [...prev, data]);
+          onTopicSelect?.(data);
+        }
+      }
+
+      setNewTopicName('');
+      setShowAddTopic(false);
+    } catch (error) {
+      setTopicError(error instanceof Error ? error.message : 'Failed to add topic');
+    } finally {
+      setAddingTopic(false);
+    }
+  };
+
+  const handleAssignFolder = async (resource: Resource, folderId: string | null) => {
+    try {
+      await storage.updateResource(resource.id, { section_id: folderId });
+      setResources((prev) =>
+        prev.map((item) => (item.id === resource.id ? { ...item, section_id: folderId } : item))
+      );
+    } catch (error) {
+      console.error('Error updating resource folder:', error);
+      alert('Failed to update folder');
+    }
+  };
+
   /* -----------------------------
      FILTERED SUBJECTS
   ------------------------------*/
@@ -220,8 +305,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return resources.filter(r => r.type === type);
     };
 
+    const renderResourceRow = (resource: Resource, level = 0) => (
+      <div
+        key={resource.id}
+        style={{ marginLeft: `${level * 12}px` }}
+        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
+      >
+        <FileText className="w-3 h-3" />
+        <span className="truncate flex-1">{resource.title}</span>
+        {folderOptions.length > 0 && (
+          <select
+            value={resource.section_id || ''}
+            onChange={(event) => handleAssignFolder(resource, event.target.value || null)}
+            className="text-[10px] bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 transition max-w-[140px]"
+          >
+            <option value="">Unsorted</option>
+            {folderOptions.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    );
+
     const renderCustomFolder = (folder: CustomFolder, level = 0) => {
       const isExpanded = expandedFolders.has(folder.id);
+      const folderResources = getResourcesByType(activeResourceType).filter(
+        (resource) => resource.section_id === folder.id
+      );
       return (
         <div key={folder.id} style={{ marginLeft: `${level * 12}px` }}>
           <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded group">
@@ -236,15 +349,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               <span className="text-sm">{folder.icon}</span>
               <span className="text-sm text-gray-700 dark:text-gray-300">{folder.name}</span>
-            </button>
-            <button
-              onClick={() => deleteCustomFolder(folder.id)}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
+              </button>
+              <button
+                onClick={() => deleteCustomFolder(folder.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
             >
               <X className="w-3 h-3 text-red-500" />
-            </button>
-          </div>
-          {isExpanded && folder.subfolders.map(sub => renderCustomFolder(sub, level + 1))}
+              </button>
+            </div>
+          {isExpanded && (
+            <>
+              {folderResources.map((resource) => renderResourceRow(resource, level + 1))}
+              {folder.subfolders.map(sub => renderCustomFolder(sub, level + 1))}
+            </>
+          )}
         </div>
       );
     };
@@ -296,16 +414,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Sidebar Panel (File tree for selected resource type) */}
         <div className="w-80 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-              {resourceTabs.find(t => t.id === activeResourceType)?.label}
-            </h2>
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                {resourceTabs.find(t => t.id === activeResourceType)?.label}
+              </h2>
+              <button
+                onClick={() => setShowAddTopic((prev) => !prev)}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {showAddTopic ? 'Cancel' : 'Add Topic'}
+              </button>
+            </div>
+            {showAddTopic && (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newTopicName}
+                  onChange={(event) => setNewTopicName(event.target.value)}
+                  placeholder="New topic name"
+                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+                {topicError && (
+                  <p className="text-[11px] text-red-500">{topicError}</p>
+                )}
+                <button
+                  onClick={handleAddTopic}
+                  disabled={addingTopic || !newTopicName.trim()}
+                  className="w-full px-2 py-1.5 text-xs font-medium bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {addingTopic ? 'Adding...' : 'Create Topic'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
             {/* Resources grouped by topic */}
             {topics.map(topic => {
-              const topicResources = getResourcesByType(activeResourceType).filter(r => r.topic_id === topic.id);
+              const topicResources = getResourcesByType(activeResourceType).filter(
+                r => r.topic_id === topic.id && !r.section_id
+              );
               if (topicResources.length === 0) return null;
 
               return (
@@ -322,16 +471,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   </button>
 
-                  <div className="ml-6 mt-1 space-y-0.5">
-                    {topicResources.map(resource => (
-                      <div
-                        key={resource.id}
-                        className="flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
-                      >
-                        <FileText className="w-3 h-3" />
-                        <span className="truncate">{resource.title}</span>
-                      </div>
-                    ))}
+                  <div className="mt-1 space-y-0.5">
+                    {topicResources.map(resource => renderResourceRow(resource, 1))}
                   </div>
                 </div>
               );
@@ -350,6 +491,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {getResourcesByType(activeResourceType).length === 0 && customFolders.length === 0 && (
               <div className="text-center py-8 text-sm text-gray-400">
                 No {resourceTabs.find(t => t.id === activeResourceType)?.label.toLowerCase()} yet
+              </div>
+            )}
+            {topics.length === 0 && (
+              <div className="text-center py-6 text-xs text-gray-400">
+                No topics yet. Add one to start organizing resources.
               </div>
             )}
           </div>

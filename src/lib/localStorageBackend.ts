@@ -39,6 +39,9 @@ export class LocalStorageBackend implements StorageBackend {
     };
 
     await localDB.saveResource(resource);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('studcom:resources-updated'));
+    }
     return resource;
   }
 
@@ -155,6 +158,9 @@ export class LocalStorageBackend implements StorageBackend {
       created_at: new Date().toISOString(),
     };
     await localDB.saveResource(newResource);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('studcom:resources-updated'));
+    }
     return newResource;
   }
 
@@ -168,6 +174,9 @@ export class LocalStorageBackend implements StorageBackend {
     }
     const updatedResource = { ...resource, ...updates };
     await localDB.saveResource(updatedResource);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('studcom:resources-updated'));
+    }
   }
 
   /**
@@ -175,6 +184,9 @@ export class LocalStorageBackend implements StorageBackend {
    */
   async deleteResource(resourceId: string): Promise<void> {
     await this.deleteFile(resourceId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('studcom:resources-updated'));
+    }
   }
 
   /**
