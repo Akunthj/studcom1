@@ -73,7 +73,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, title }) => {
                   jumpToPage();
                 }
               }}
-              className="w-16 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-md text-center text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              disabled={numPages === 0}
+              className="w-16 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-md text-center text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-60"
             />
             <span>of {numPages || '--'}</span>
           </div>
