@@ -63,6 +63,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const folderStorageKey = currentSubjectId
     ? `studcom:custom_sections:${currentSubjectId}:${activeResourceType}`
     : null;
+  const expandedStorageKey = currentSubjectId
+    ? `studcom:custom_sections_expanded:${currentSubjectId}:${activeResourceType}`
+    : null;
 
   /* -----------------------------
      FETCH SUBJECTS
@@ -167,6 +170,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setCustomFolders([]);
     }
   }, [folderStorageKey]);
+
+  useEffect(() => {
+    if (!expandedStorageKey) {
+      setExpandedFolders(new Set());
+      return;
+    }
+
+    const stored = localStorage.getItem(expandedStorageKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as string[];
+        setExpandedFolders(new Set(parsed));
+      } catch {
+        setExpandedFolders(new Set());
+      }
+    } else {
+      setExpandedFolders(new Set());
+    }
+  }, [expandedStorageKey]);
+
+  useEffect(() => {
+    if (!expandedStorageKey) return;
+    localStorage.setItem(expandedStorageKey, JSON.stringify(Array.from(expandedFolders)));
+  }, [expandedFolders, expandedStorageKey]);
 
   /* -----------------------------
      SAVE CUSTOM FOLDERS TO LOCALSTORAGE
@@ -394,6 +421,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
                 event.stopPropagation();
               }
             }}
