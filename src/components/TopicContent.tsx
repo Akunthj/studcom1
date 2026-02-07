@@ -11,9 +11,20 @@ interface TopicContentProps {
   topic: Topic;
   subject: Subject;
   activeTab?: 'books' | 'slides' | 'notes' | 'pyqs';
+  openResource?: {
+    id: string;
+    type: Resource['type'];
+    topicId: string;
+    token: number;
+  } | null;
 }
 
-export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, activeTab = 'books' }) => {
+export const TopicContent: React.FC<TopicContentProps> = ({
+  topic,
+  subject,
+  activeTab = 'books',
+  openResource = null,
+}) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -51,6 +62,9 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
   const getResourcesByType = (type: string) => {
     return resources.filter((r) => r.type === type);
   };
+
+  const activeOpenResource =
+    openResource && openResource.topicId === topic.id ? openResource : null;
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
@@ -93,6 +107,8 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
                 topicId={topic.id}
                 subjectId={subject.id}
                 onResourceAdded={fetchResources}
+                openResourceId={activeOpenResource?.type === 'book' ? activeOpenResource.id : undefined}
+                openResourceToken={activeOpenResource?.token}
               />
             )}
             {activeTab === 'slides' && (
@@ -101,6 +117,8 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
                 topicId={topic.id}
                 subjectId={subject.id}
                 onResourceAdded={fetchResources}
+                openResourceId={activeOpenResource?.type === 'slides' ? activeOpenResource.id : undefined}
+                openResourceToken={activeOpenResource?.token}
               />
             )}
             {activeTab === 'notes' && (
@@ -108,6 +126,8 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
                 onResourceAdded={fetchResources}
+                openResourceId={activeOpenResource?.type === 'notes' ? activeOpenResource.id : undefined}
+                openResourceToken={activeOpenResource?.token}
               />
             )}
             {activeTab === 'pyqs' && (
@@ -116,6 +136,8 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
                 topicId={topic.id}
                 subjectId={subject.id}
                 onResourceAdded={fetchResources}
+                openResourceId={activeOpenResource?.type === 'pyqs' ? activeOpenResource.id : undefined}
+                openResourceToken={activeOpenResource?.token}
               />
             )}
           </div>

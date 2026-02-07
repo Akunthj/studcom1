@@ -7,12 +7,16 @@ interface NotesTabProps {
   resources: Resource[];
   topicId: string;
   onResourceAdded: () => void;
+  openResourceId?: string;
+  openResourceToken?: number;
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({
   resources,
   topicId,
   onResourceAdded,
+  openResourceId,
+  openResourceToken,
 }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [editingNote, setEditingNote] = useState<Resource | null>(null);
@@ -97,6 +101,13 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     setContent('');
     setShowCreate(false);
   };
+
+  React.useEffect(() => {
+    if (!openResourceId) return;
+    const resource = resources.find((item) => item.id === openResourceId);
+    if (!resource) return;
+    startEdit(resource);
+  }, [openResourceId, openResourceToken, resources]);
 
   if (showCreate || editingNote) {
     return (

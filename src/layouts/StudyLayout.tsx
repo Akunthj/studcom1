@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Subject, Topic } from '@/lib/types';
+import { Subject, Topic, Resource } from '@/lib/types';
 import { Sidebar, ResourceType } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
@@ -35,6 +35,12 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
   const [rightPanel, setRightPanel] = useState<'ai' | 'todo' | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [activeResourceType, setActiveResourceType] = useState<ResourceType>('books');
+  const [openResource, setOpenResource] = useState<{
+    id: string;
+    type: Resource['type'];
+    topicId: string;
+    token: number;
+  } | null>(null);
 
   // Persist sidebar state
   useEffect(() => {
@@ -213,6 +219,14 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
               onTopicSelect(topic, selectedSubject);
             }
           }}
+          onResourceOpen={(resource) => {
+            setOpenResource({
+              id: resource.id,
+              type: resource.type,
+              topicId: resource.topic_id,
+              token: Date.now(),
+            });
+          }}
           selectedTopicId={selectedTopic?.id}
           collapsed={!sidebarOpen}
           onActiveResourceTypeChange={setActiveResourceType}
@@ -221,7 +235,12 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
         <main className="flex-1 overflow-hidden">
           {children || (
             selectedTopic && selectedSubject ? (
-              <TopicContent topic={selectedTopic} subject={selectedSubject} activeTab={activeResourceType} />
+              <TopicContent
+                topic={selectedTopic}
+                subject={selectedSubject}
+                activeTab={activeResourceType}
+                openResource={openResource}
+              />
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">

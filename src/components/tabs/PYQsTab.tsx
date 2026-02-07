@@ -10,6 +10,8 @@ interface PYQsTabProps {
   topicId: string;
   subjectId: string;
   onResourceAdded: () => void;
+  openResourceId?: string;
+  openResourceToken?: number;
 }
 
 export const PYQsTab: React.FC<PYQsTabProps> = ({
@@ -17,6 +19,8 @@ export const PYQsTab: React.FC<PYQsTabProps> = ({
   topicId,
   subjectId,
   onResourceAdded,
+  openResourceId,
+  openResourceToken,
 }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPYQ, setSelectedPYQ] = useState<Resource | null>(null);
@@ -90,6 +94,29 @@ export const PYQsTab: React.FC<PYQsTabProps> = ({
       alert('Failed to load PYQ');
     }
   };
+
+  useEffect(() => {
+    if (!openResourceId) return;
+    const resource = resources.find((item) => item.id === openResourceId);
+    if (!resource) return;
+
+    const openSelected = async () => {
+      try {
+        if (!fileUrlsRef.current[resource.id]) {
+          const url = await storage.getFileUrl(resource.id);
+          setFileUrls((prev) => ({ ...prev, [resource.id]: url }));
+          setSelectedPYQ({ ...resource, file_url: url });
+        } else {
+          setSelectedPYQ({ ...resource, file_url: fileUrlsRef.current[resource.id] });
+        }
+      } catch (error) {
+        console.error('Error loading PYQ:', error);
+        alert('Failed to load PYQ');
+      }
+    };
+
+    openSelected();
+  }, [openResourceId, openResourceToken, resources]);
 
   if (selectedPYQ) {
     return (

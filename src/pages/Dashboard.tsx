@@ -244,8 +244,32 @@ export const Dashboard: React.FC = () => {
 
       <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 w-full">
         <div className="flex flex-col gap-4">
-          {/* Exam Calendar */}
-          <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+            {/* Exam Calendar */}
+            <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
+                  ${compactView ? 'p-4' : 'p-5'}
+                `}
+              >
+                <div
+                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
+                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
+                  `}
+                >
+                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
+                </div>
+                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
+                  Add New Subject
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Start tracking a new subject
+                </p>
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
@@ -278,33 +302,6 @@ export const Dashboard: React.FC = () => {
                 <Minimize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
               )}
             </button>
-          </div>
-
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Quick Access</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Add New Subject
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Start tracking a new subject
-                </p>
-              </button>
-
-            </div>
           </div>
 
           <div>

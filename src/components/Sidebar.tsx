@@ -13,6 +13,7 @@ interface SidebarProps {
   onTopicSelect?: (topic: Topic) => void;
   selectedTopicId?: string;
   onActiveResourceTypeChange?: (resourceType: ResourceType) => void;
+  onResourceOpen?: (resource: Resource) => void;
 }
 
 type ResourceType = 'books' | 'slides' | 'notes' | 'pyqs';
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTopicSelect,
   selectedTopicId,
   onActiveResourceTypeChange,
+  onResourceOpen,
 }) => {
   const { isDemo } = useAuth();
   const { currentSubjectId, setCurrentSubjectId } = useSubject();
@@ -57,6 +59,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [newTopicName, setNewTopicName] = useState('');
   const [addingTopic, setAddingTopic] = useState(false);
   const [topicError, setTopicError] = useState('');
+
+  const folderStorageKey = currentSubjectId
+    ? `studcom:custom_sections:${currentSubjectId}:${activeResourceType}`
+    : null;
 
   /* -----------------------------
      FETCH SUBJECTS
@@ -144,13 +150,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
      LOAD CUSTOM FOLDERS FROM LOCALSTORAGE
   ------------------------------*/
   useEffect(() => {
-    if (!currentSubjectId) {
+    if (!folderStorageKey) {
       setCustomFolders([]);
+      setExpandedFolders(new Set());
       return;
     }
 
-    const key = `studcom:custom_sections:${currentSubjectId}`;
-    const stored = localStorage.getItem(key);
+    const stored = localStorage.getItem(folderStorageKey);
     if (stored) {
       try {
         setCustomFolders(JSON.parse(stored));
@@ -160,15 +166,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setCustomFolders([]);
     }
-  }, [currentSubjectId]);
+    setExpandedFolders(new Set());
+  }, [folderStorageKey]);
 
   /* -----------------------------
      SAVE CUSTOM FOLDERS TO LOCALSTORAGE
   ------------------------------*/
   const saveCustomFolders = (folders: CustomFolder[]) => {
-    if (!currentSubjectId) return;
-    const key = `studcom:custom_sections:${currentSubjectId}`;
-    localStorage.setItem(key, JSON.stringify(folders));
+    if (!folderStorageKey) return;
+    localStorage.setItem(folderStorageKey, JSON.stringify(folders));
     setCustomFolders(folders);
   };
 
@@ -326,6 +332,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const handleResourceOpen = (resource: Resource) => {
+    const topic = topics.find((item) => item.id === resource.topic_id);
+    if (topic) {
+      onTopicSelect?.(topic);
+    }
+    onResourceOpen?.(resource);
+  };
+
   const handleAssignFolder = async (resource: Resource, folderId: string | null) => {
     try {
       await storage.updateResource(resource.id, { section_id: folderId });
@@ -361,7 +375,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         key={resource.id}
         style={{ marginLeft: `${level * 12}px` }}
-        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
+        className="group flex items-center gap-2 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleResourceOpen(resource)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleResourceOpen(resource);
+          }
+        }}
       >
         <FileText className="w-3 h-3" />
         <span className="truncate flex-1">{resource.title}</span>
@@ -369,6 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <select
             value={resource.section_id || ''}
             onChange={(event) => handleAssignFolder(resource, event.target.value || null)}
+            onClick={(event) => event.stopPropagation()}
             className="text-[10px] bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition max-w-[140px]"
           >
             <option value="">Unsorted</option>
@@ -483,7 +507,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   value={newTopicName}
                   onChange={(event) => setNewTopicName(event.target.value)}
                   placeholder="New topic name"
-                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                 />
                 {topicError && (
                   <p className="text-[11px] text-red-500">{topicError}</p>
@@ -503,7 +527,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Resources grouped by topic */}
             {topics.map(topic => {
               const topicResources = resourcesByTopic[topic.id] ?? [];
-              if (topicResources.length === 0) return null;
 
               return (
                 <div key={topic.id} className="mb-2">
@@ -519,9 +542,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   </button>
 
-                  <div className="mt-1 space-y-0.5">
-                    {topicResources.map(resource => renderResourceRow(resource, 1))}
-                  </div>
+                  {topicResources.length > 0 ? (
+                    <div className="mt-1 space-y-0.5">
+                      {topicResources.map(resource => renderResourceRow(resource, 1))}
+                    </div>
+                  ) : (
+                    <div className="ml-6 mt-1 text-[11px] text-gray-400">
+                      No files yet
+                    </div>
+                  )}
                 </div>
               );
             })}
