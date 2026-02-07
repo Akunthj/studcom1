@@ -284,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       if (isDemo) {
         const newTopic: Topic = {
-          id: `topic-${crypto.randomUUID()}`,
+          id: crypto.randomUUID(),
           subject_id: currentSubjectId,
           name: newTopicName.trim(),
           description: null,

@@ -55,7 +55,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }
         demoStorage.setTopics([
           ...demoTopics,
           {
-            id: `topic-${crypto.randomUUID()}`,
+            id: crypto.randomUUID(),
             subject_id: newSubject.id,
             name: 'General',
             description: null,
