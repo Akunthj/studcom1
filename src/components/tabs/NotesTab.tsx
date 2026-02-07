@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Resource } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { FileText, Plus, Edit, Trash2, Save, X } from 'lucide-react';
@@ -102,11 +102,14 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     setShowCreate(false);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!openResourceId) return;
     const resource = resources.find((item) => item.id === openResourceId);
     if (!resource) return;
-    startEdit(resource);
+    setEditingNote(resource);
+    setTitle(resource.title);
+    setContent(resource.description || '');
+    setShowCreate(false);
   }, [openResourceId, openResourceToken, resources]);
 
   if (showCreate || editingNote) {
