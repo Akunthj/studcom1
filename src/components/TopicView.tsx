@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Subject, Topic, Resource } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { Book, Presentation, FileText, HelpCircle, MessageCircle, Lightbulb, TrendingUp, Clock } from 'lucide-react';
 import { BooksTab } from './tabs/BooksTab';
@@ -34,13 +34,7 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .eq('topic_id', topic.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await storage.getResources(topic.id);
       setResources(data || []);
     } catch (error) {
       console.error('Error fetching resources:', error);
@@ -53,16 +47,10 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('user_recently_accessed')
-        .upsert({
-          user_id: user.id,
-          subject_id: subject.id,
-          topic_id: topic.id,
-          last_accessed_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
+      // Update progress to track recently accessed
+      await storage.updateProgress(user.id, topic.id, {
+        last_accessed: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error updating recently accessed:', error);
     }
@@ -155,6 +143,7 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               <BooksTab
                 resources={getResourcesByType('book')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
@@ -162,6 +151,7 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               <SlidesTab
                 resources={getResourcesByType('slides')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
@@ -176,6 +166,7 @@ export const TopicView: React.FC<TopicViewProps> = ({ topic, subject }) => {
               <PYQsTab
                 resources={getResourcesByType('pyqs')}
                 topicId={topic.id}
+                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}

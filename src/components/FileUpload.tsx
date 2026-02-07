@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Upload, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { Resource } from '@/lib/types';
+import { storage } from '@/lib/storage';
+import { chunkText, embedBatch } from '@/lib/geminiClient';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker
@@ -14,19 +14,6 @@ interface FileUploadProps {
   onSuccess: () => void;
   acceptedTypes?: string;
 }
-
-const DEMO_STORAGE_KEY = 'demo_resources';
-
-const getDemoResources = (topicId: string): Resource[] => {
-  const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
-  return all[topicId] || [];
-};
-
-const setDemoResources = (topicId: string, resources: Resource[]) => {
-  const all = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || '{}');
-  all[topicId] = resources;
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(all));
-};
 
 // Extract text from PDF file
 async function extractPdfText(file: File): Promise<string> {
@@ -84,84 +71,28 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       return;
     }
 
+    if (!subjectId) {
+      setError('Subject ID is required for file upload');
+      return;
+    }
+
     setUploading(true);
     setError(null);
-    setProcessingStatus('Uploading file...');
+    setProcessingStatus('Saving file...');
 
     try {
-      /**
-       * 🟢 DEMO MODE (no Supabase)
-       */
-      if (!supabase) {
-        const existing = getDemoResources(topicId);
-
-        // Create a blob URL so the file can be viewed
-        const blobUrl = URL.createObjectURL(file);
-
-        const newResource = {
-          id: crypto.randomUUID(),
-          topic_id: topicId,
-          title,
-          description: description || null,
-          type: resourceType,
-          file_url: blobUrl,        // blob URL for viewing
-          file_path: null,
-          file_name: file.name,
-          file_size: file.size,
-          section_id: null,
-          processing_status: 'pending' as const,
-          created_at: new Date().toISOString(),
-        };
-
-        const updated = [...existing, newResource];
-        setDemoResources(topicId, updated);
-
-        setSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-          resetForm();
-        }, 1000);
-
-        return;
-      }
-
-      /**
-       * 🔵 REAL SUPABASE MODE WITH RAG
-       */
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${topicId}/${Date.now()}.${fileExt}`;
-      const filePath = `resources/${fileName}`;
-
-      // Upload file to storage
-      const { error: uploadError } = await supabase.storage
-        .from('study-resources')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('study-resources')
-        .getPublicUrl(filePath);
-
-      // Insert resource metadata
-      const { data: insertedResource, error: dbError } = await supabase
-        .from('resources')
-        .insert({
-          topic_id: topicId,
-          title,
-          description: description || null,
-          type: resourceType,
-          file_url: urlData.publicUrl,
-          file_path: filePath,
-          processing_status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
+      // Save file using storage backend
+      const resource = await storage.saveFile(
+        topicId,
+        resourceType,
+        file,
+        title,
+        description || undefined
+      );
 
       // Process PDFs for RAG - extract text and embed
-      if (fileExt?.toLowerCase() === 'pdf' && subjectId) {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (fileExt === 'pdf') {
         setProcessingStatus('Extracting text from PDF...');
         
         try {
@@ -170,27 +101,33 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           if (textContent && textContent.length > 100) {
             setProcessingStatus('Creating embeddings...');
             
-            // Call embed-document function
-            const embedUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/embed-document`;
-            const embedResponse = await fetch(embedUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                resourceId: insertedResource.id,
-                topicId,
-                subjectId,
-                textContent,
-              }),
-            });
-
-            if (!embedResponse.ok) {
-              console.error('Failed to embed document:', await embedResponse.text());
-              // Don't fail the upload, just log the error
-              setProcessingStatus('File uploaded, but embedding failed. You can still use it.');
+            // Check if Gemini API key is configured
+            if (!import.meta.env.VITE_GEMINI_API_KEY) {
+              console.warn('VITE_GEMINI_API_KEY not configured, skipping embeddings');
+              setProcessingStatus('File uploaded (AI features unavailable - set VITE_GEMINI_API_KEY)');
             } else {
+              // Chunk the text
+              const chunks = chunkText(textContent);
+              console.log(`Created ${chunks.length} chunks for resource ${resource.id}`);
+
+              // Embed chunks using Gemini
+              const embeddings = await embedBatch(chunks);
+
+              if (embeddings.length !== chunks.length) {
+                throw new Error(`Mismatch between chunks (${chunks.length}) and embeddings (${embeddings.length}) count`);
+              }
+
+              // Save chunks with embeddings
+              const chunksData = chunks.map((chunk, index) => ({
+                content: chunk,
+                embedding: embeddings[index],
+                chunkIndex: index,
+                sourceType: resourceType,
+                sourceTitle: title,
+              }));
+
+              await storage.saveChunks(resource.id, topicId, subjectId, chunksData);
+              
               setProcessingStatus('Document processed successfully!');
             }
           } else {
@@ -202,6 +139,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           // Don't fail the upload, just log the error
           setProcessingStatus('File uploaded, but text extraction failed.');
         }
+      } else {
+        setProcessingStatus('File uploaded successfully!');
       }
 
       setSuccess(true);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { storage } from '@/lib/storage';
+import { embedText, generateResponse } from '@/lib/geminiClient';
 import { Send, Loader2, Sparkles } from 'lucide-react';
 
 interface ConceptExplainerPanelProps {
@@ -26,7 +27,8 @@ export const ConceptExplainerPanel: React.FC<ConceptExplainerPanelProps> = ({
     setExplanation(null);
 
     try {
-      await supabase.from('ai_chat_history').insert({
+      // Save user message
+      await storage.saveChatMessage({
         user_id: user.id,
         topic_id: topicId,
         message: `Explain: ${concept}`,
@@ -35,28 +37,39 @@ export const ConceptExplainerPanel: React.FC<ConceptExplainerPanelProps> = ({
         chat_type: 'concept_explainer',
       });
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: concept,
-          topicName,
-          topicId, // Add topicId for RAG
-          chatType: 'concept_explainer',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get explanation');
+      // Check if Gemini API key is configured
+      if (!import.meta.env.VITE_GEMINI_API_KEY) {
+        throw new Error('VITE_GEMINI_API_KEY not configured. Please set it in your .env file.');
       }
 
-      const { response: aiResponse } = await response.json();
+      // Embed the query
+      const queryEmbedding = await embedText(concept);
 
-      await supabase.from('ai_chat_history').insert({
+      // Search for similar chunks
+      const similarChunks = await storage.searchSimilar(queryEmbedding, topicId, 5, 0.7);
+
+      // Build context from similar chunks
+      let ragContext = '';
+      if (similarChunks && similarChunks.length > 0) {
+        ragContext = similarChunks
+          .map((chunk, idx) => {
+            return `[Source ${idx + 1}: ${chunk.sourceTitle} (${chunk.sourceType})]
+${chunk.content}
+`;
+          })
+          .join('\n---\n\n');
+      }
+
+      // Generate AI response
+      const aiResponse = await generateResponse(
+        concept,
+        ragContext,
+        topicName,
+        'concept_explainer'
+      );
+
+      // Save assistant message
+      await storage.saveChatMessage({
         user_id: user.id,
         topic_id: topicId,
         message: aiResponse,
@@ -67,7 +80,7 @@ export const ConceptExplainerPanel: React.FC<ConceptExplainerPanelProps> = ({
 
       setExplanation(aiResponse);
     } catch (err) {
-      setError('Failed to get explanation');
+      setError(err instanceof Error ? err.message : 'Failed to get explanation');
       console.error('Error explaining concept:', err);
     } finally {
       setLoading(false);

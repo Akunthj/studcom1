@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Subject, Topic, Resource } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { BooksTab } from './tabs/BooksTab';
 import { SlidesTab } from './tabs/SlidesTab';
@@ -26,36 +26,8 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
   const fetchResources = async () => {
     try {
       setLoading(true);
-      
-      // Fetch from Supabase if available
-      let supabaseResources: Resource[] = [];
-      if (supabase) {
-        const { data, error } = await supabase
-          .from('resources')
-          .select('*')
-          .eq('topic_id', topic.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        supabaseResources = data || [];
-      }
-
-      // Also fetch demo resources from localStorage
-      const demoStored = JSON.parse(localStorage.getItem('demo_resources') || '{}');
-      const demoResources = (demoStored[topic.id] || []).map((r: Resource) => ({
-        id: r.id,
-        topic_id: r.topic_id,
-        title: r.title,
-        type: r.type,
-        file_url: r.file_url,
-        file_path: r.file_path || null,
-        description: r.description || null,
-        section_id: r.section_id || null,
-        created_at: r.created_at || new Date().toISOString(),
-      }));
-
-      // Merge both sources
-      setResources([...supabaseResources, ...demoResources]);
+      const data = await storage.getResources(topic.id);
+      setResources(data);
     } catch (error) {
       console.error('Error fetching resources:', error);
     } finally {
@@ -67,16 +39,10 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('user_recently_accessed')
-        .upsert({
-          user_id: user.id,
-          subject_id: subject.id,
-          topic_id: topic.id,
-          last_accessed_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
+      // Update progress to track recently accessed
+      await storage.updateProgress(user.id, topic.id, {
+        last_accessed: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error updating recently accessed:', error);
     }
@@ -141,7 +107,6 @@ export const TopicContent: React.FC<TopicContentProps> = ({ topic, subject, acti
               <NotesTab
                 resources={getResourcesByType('notes')}
                 topicId={topic.id}
-                subjectId={subject.id}
                 onResourceAdded={fetchResources}
               />
             )}
