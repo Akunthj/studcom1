@@ -1,0 +1,55 @@
+== Frontend Polling Candidates ==
+Created: 2026-02-08
+
+=== IDENTIFIED POLLING SOURCES ===
+
+1. src/pages/NoteView.tsx (CRITICAL - ROOT CAUSE)
+   Line 9-11: useEffect with NO cancellation pattern
+   - Effect runs when [id] changes
+   - Calls load() which fetches /api/notes/{id}
+   - NO cleanup function to prevent state updates after unmount
+   - NO cancelled flag to prevent re-renders from causing duplicate fetches
+   Problem: Can cause repeated 304 responses if component re-renders
+   Fix: Add cancellation pattern with cancelled flag
+
+2. src/components/NotesUpload.tsx (INTENTIONAL)
+   Line 16: window.setInterval polling every 2000ms
+   - Only runs when uploading a file
+   - Polls /api/notes/{jobId} to check processing status
+   - Clears interval when job completes or times out
+   Status: INTENDED BEHAVIOR - do not change
+
+3. src/pages/NotesMaker.tsx (INTENTIONAL)
+   Line 26-48: pollJobStatus() function with while loop
+   - Only runs after file upload
+   - Polls /api/notes/{jobId} with 2 second intervals
+   - Stops when job completes or timeout reached
+   Status: INTENDED BEHAVIOR - do not change
+
+4. src/pages/NotesCenter.tsx
+   Line 10: useEffect with empty deps []
+   - Fetches /api/notes once on mount (list endpoint)
+   - Proper cleanup - do not change
+   Status: OK
+
+5. src/components/NotesWidget.tsx
+   Similar to NotesCenter - fetches list once on mount
+   Status: OK
+
+=== ROOT CAUSE ANALYSIS ===
+
+The repeated 304 responses to /api/notes/{id} are coming from:
+- src/pages/NoteView.tsx without proper cleanup/cancellation pattern
+- This is accessed via /notes-center/{id} route
+
+The fix requires:
+1. Add cancelled flag inside useEffect
+2. Guard all state updates with "if (!cancelled)"
+3. Return cleanup function to set cancelled = true on unmount
+4. Add cache: 'no-cache' to force fresh fetches if needed
+
+=== INTENTIONAL POLLING (NOT CHANGING) ===
+
+- NotesUpload polling: Part of file upload workflow
+- NotesMaker polling: Part of upload processing workflow
+- Both have proper timeout/cleanup logic
