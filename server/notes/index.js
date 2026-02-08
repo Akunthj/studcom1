@@ -47,6 +47,79 @@ REQUIREMENTS:
 - If any field is not available, provide an empty string or empty array (do NOT omit the key).
 
 Text:
+/**
+ * server/notes/index.js
+ * Improved notes worker: larger chunks, larger outputs, better logging and error handling.
+ *
+ * KEEP MODEL: gemini-2.5-flash
+ */
+
+console.log("=== NOTES SERVICE (improved) ===");
+
+import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
+import multer from "multer";
+import fs from "fs/promises";
+import path from "path";
+import fetch from "node-fetch";
+import Ajv from "ajv";
+import { v4 as uuidv4 } from "uuid";
+import { extractTextFromFile } from "./extractor.js";
+import { chunkText } from "./chunker.js";
+import { mergeNotes } from "./merge.js";
+import NOTES_SCHEMA from "./schema.json" with { type: "json" };
+
+const app = express();
+app.use(express.json());
+const upload = multer({ dest: "server/tmp_uploads/" });
+
+const ajv = new Ajv();
+const validate = ajv.compile(NOTES_SCHEMA);
+
+const API_KEY = process.env.GOOGLE_API_KEY;
+if (!API_KEY) console.warn("⚠️ Missing GOOGLE_API_KEY in env (server/notes)");
+
+const JOBS = {}; // in-memory job store (dev). We persist outputs to disk.
+
+function safeJsonParse(s) {
+  if (!s || typeof s !== "string") throw new Error("No text to parse");
+  let t = s.trim();
+  // remove common code fences / markdown
+  t = t.replace(/```json/gi, "").replace(/```/g, "").trim();
+  t = t.replace(/^`+/, "").replace(/`+$/, "").trim();
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) {
+    t = t.slice(first, last + 1);
+  }
+  t = t.trim();
+  return JSON.parse(t);
+}
+
+async function callGeminiStructured(text) {
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            text: `You are an expert academic note-making assistant. Return ONLY valid JSON that follows the schema below. Do NOT include markdown, code fences, explanations or any extra text.
+
+REQUIRED TOP-LEVEL KEYS:
+- title (string)
+- tl_dr (string)
+- summary (string)
+- sections (array of objects with at least: heading (string), content (string), key_points (array of strings))
+- action_items (array of strings)
+- questions (array of strings)
+- flashcards (array of {question, answer})
+
+If anything is missing, include the key with an empty string or empty array.
+
+Text:
 ---
 ${text}
 ---`
@@ -55,72 +128,78 @@ ${text}
       }
     ],
     generationConfig: {
-      temperature: 0.0,
+      temperature: 0.2,
       maxOutputTokens: 4000
     }
   };
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  const data = await resp.json();
-
-  if (!resp.ok) {
-    // throw a structured error so caller can log it
-    throw new Error(JSON.stringify(data));
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      // no credentials
+    });
+  } catch (netErr) {
+    throw new Error("Network error when calling Gemini: " + String(netErr));
   }
 
-  // Try to pull the returned text: Gemini variants return candidates[].content.parts[0].text
+  let data;
+  try {
+    data = await resp.json();
+  } catch (parseErr) {
+    const textBody = await resp.text().catch(() => "");
+    throw new Error("Invalid JSON response from Gemini: " + parseErr.message + " | body: " + textBody);
+  }
+
+  if (!resp.ok) {
+    // detect quota / retry info if present
+    try {
+      const errStr = JSON.stringify(data);
+      // 429 special handling
+      if (data?.error?.code === 429 || data?.error?.status === "RESOURCE_EXHAUSTED") {
+        throw new Error("QUOTA_EXCEEDED: " + errStr);
+      }
+      throw new Error("Gemini API error: " + errStr);
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  // try common locations for returned content
   const rawText =
     data?.candidates?.[0]?.content?.parts?.[0]?.text ??
     data?.candidates?.[0]?.text ??
     (typeof data === "string" ? data : null);
 
   if (!rawText) {
-    throw new Error("No text returned from Gemini");
+    // fallback to full JSON if model returned structured fields
+    if (data?.output) return data;
+    throw new Error("No textual output found in Gemini response: " + JSON.stringify(data).slice(0, 1000));
   }
 
-  // sanitize and parse to JSON (throws on invalid JSON)
-  return sanitizeAndParseJSON(rawText);
-}
-
-/* ----------------------
-   sanitize & parse JSON
-   ---------------------- */
-function sanitizeAndParseJSON(raw) {
-  if (!raw || typeof raw !== "string") throw new Error("No text to parse");
-
-  let s = raw.trim();
-
-  // Remove markdown fences if present
-  s = s.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-  // Strip surrounding backticks if any
-  s = s.replace(/^`+/, "").replace(/`+$/, "").trim();
-
-  // Extract first JSON block (from first { to last })
-  const firstBrace = s.indexOf("{");
-  const lastBrace = s.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    s = s.slice(firstBrace, lastBrace + 1);
+  // sanitize & parse
+  try {
+    return safeJsonParse(rawText);
+  } catch (err) {
+    // if the model returned valid JSON inside structuredOutput or similar
+    try {
+      // look for structuredOutput in the full response
+      const maybe = data?.candidates?.[0]?.content?.[0]?.structuredOutput ??
+                    data?.output?.[0]?.content?.[0]?.structuredOutput;
+      if (maybe) return maybe;
+    } catch (e) {}
+    // rethrow parsing error with model preview
+    const preview = rawText.slice(0, 2000);
+    throw new Error("Failed to parse model JSON output: " + String(err.message) + " | preview: " + preview);
   }
-
-  s = s.trim();
-  return JSON.parse(s); // will throw if invalid
 }
 
-/* ----------------------
-   helper: fill defaults
-   ---------------------- */
+// helper: fill defaults so schema passes more often
 function fillDefaults(obj) {
   return {
-    title:
-      typeof obj?.title === "string" && obj.title.trim()
-        ? obj.title.trim()
-        : "Notes",
+    title: typeof obj?.title === "string" && obj.title.trim() ? obj.title.trim() : "Notes",
     tl_dr: typeof obj?.tl_dr === "string" ? obj.tl_dr : "",
     summary: typeof obj?.summary === "string" ? obj.summary : "",
     sections: Array.isArray(obj?.sections) ? obj.sections : [],
@@ -130,155 +209,132 @@ function fillDefaults(obj) {
   };
 }
 
-/* ----------------------
-   POST /api/notes
-   ---------------------- */
 app.post("/api/notes", upload.single("file"), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: "no file uploaded" });
 
     const jobId = uuidv4();
-    console.log("POST received:", jobId);
-
+    console.log("POST received, creating job:", jobId);
     JOBS[jobId] = { status: "processing", createdAt: Date.now() };
 
-    // async processing (fire-and-forget)
+    // start background work
     (async () => {
       try {
+        console.log("Starting processing for job:", jobId);
         const text = await extractTextFromFile(f.path, f.mimetype);
         await fs.unlink(f.path).catch(() => {});
-
-        // For testing you might use single call: const chunks = [text];
-        const chunks = chunkText(text, { maxChars: 30000, overlapChars: 500 });
+        // LARGER CHUNKS: bigger context, fewer API calls
+        const chunks = chunkText(text, { maxChars: 80000, overlapChars: 2000 });
+        console.log(`job=${jobId} split into ${chunks.length} chunk(s)`);
 
         const chunkOutputs = [];
-
         for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          let parsedObj = null;
-
+          const c = chunks[i];
+          console.log(`job=${jobId} processing chunk ${i+1}/${chunks.length}`);
+          let parsed = null;
           try {
-            // primary call
-            parsedObj = await callGeminiStructured(chunk);
+            parsed = await callGeminiStructured(c);
           } catch (errPrimary) {
-            console.warn("Primary call failed for chunk", i, ":", errPrimary.message);
-
-            // retry once with stronger instruction wrapper
+            console.warn(`Chunk ${i} primary call failed:`, errPrimary.message);
+            // Retry once with stricter wrapper
             try {
-              const retryPrompt = `SYSTEM: Return only valid JSON.\n\n${chunk}`;
-              parsedObj = await callGeminiStructured(retryPrompt);
+              parsed = await callGeminiStructured("SYSTEM: Return only valid JSON.\\n\\n" + c);
             } catch (errRetry) {
-              console.warn("Retry also failed for chunk", i, ":", errRetry.message);
-
-              // write debug file for offline inspection (include chunk and errors)
+              console.warn(`Chunk ${i} retry failed:`, errRetry.message);
+              // Save debug info and skip chunk
               try {
                 await fs.mkdir("server/tmp_debug", { recursive: true });
-                const debugObj = {
-                  jobId,
-                  chunkIndex: i,
-                  errorPrimary: errPrimary.message,
-                  errorRetry: errRetry.message,
-                  chunkPreview: String(chunk).slice(0, 2000),
-                  timestamp: Date.now()
-                };
-                await fs.writeFile(
-                  `server/tmp_debug/${jobId}-chunk-${i}-${Date.now()}.json`,
-                  JSON.stringify(debugObj, null, 2),
-                  "utf8"
-                );
+                await fs.writeFile(`server/tmp_debug/${jobId}-chunk-${i}-error.json`, JSON.stringify({
+                  jobId, chunkIndex: i, errorPrimary: errPrimary.message, errorRetry: errRetry.message, chunkPreview: String(c).slice(0, 2000), ts: Date.now()
+                }, null, 2), "utf8");
               } catch (wErr) {
-                console.warn("Failed to write debug file:", wErr);
+                console.warn("Failed writing debug file:", wErr);
               }
-
-              // skip this chunk but continue with others
+              // If quota exceeded, short-circuit and mark job error
+              if ((errPrimary.message || errRetry.message || "").includes("QUOTA_EXCEEDED") || (errPrimary.message || "").includes("RESOURCE_EXHAUSTED")) {
+                JOBS[jobId] = { status: "error", createdAt: Date.now(), error: "Quota exceeded: " + String(errPrimary.message || errRetry.message) };
+                console.error("Job failed due to quota. job:", jobId);
+                return;
+              }
               continue;
             }
           }
 
-          // parsedObj should be a JS object at this point; if not, try to coerce
+          // Now parsed should be a JS object
           try {
-            const obj = typeof parsedObj === "string" ? JSON.parse(parsedObj) : parsedObj;
-
-            // validate against schema
+            const obj = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
+            // Validate with AJV; if invalid, attempt to fill defaults
             if (validate(obj)) {
               chunkOutputs.push(obj);
             } else {
-              // not valid — attempt fallback by filling defaults
               console.warn("Schema validation failed:", validate.errors);
-              console.warn("Model returned (preview):", JSON.stringify(obj).slice(0, 2000));
-
               const fallback = fillDefaults(obj);
-
               if (validate(fallback)) {
-                console.log("Fallback validated after filling defaults; using fallback.");
                 chunkOutputs.push(fallback);
               } else {
-                console.warn("Fallback still invalid; pushing fallback (partial) to avoid losing all data.");
+                // push fallback anyway to preserve data
                 chunkOutputs.push(fallback);
               }
             }
           } catch (parseErr) {
-            console.warn("Chunk parsing failed (invalid JSON) for chunk", i, ":", parseErr.message);
-
-            // Save raw model output for debugging
+            console.warn("Failed to coerce parsed chunk into JSON:", parseErr.message);
+            // Save raw output for debugging
             try {
               await fs.mkdir("server/tmp_debug", { recursive: true });
-              await fs.writeFile(
-                `server/tmp_debug/${jobId}-chunk-${i}-raw-${Date.now()}.txt`,
-                String(parsedObj || chunk).slice(0, 20000),
-                "utf8"
-              );
+              await fs.writeFile(`server/tmp_debug/${jobId}-chunk-${i}-raw.txt`, String(parsed || c).slice(0, 20000), "utf8");
             } catch (wErr) {
-              console.warn("Failed writing raw debug file:", wErr);
+              console.warn("Failed writing raw debug:", wErr);
             }
-
-            // skip this chunk
             continue;
           }
-        } // end for
+        } // end for chunks
 
         if (chunkOutputs.length === 0) {
-          throw new Error("No valid chunk outputs");
+          JOBS[jobId] = { status: "error", createdAt: Date.now(), error: "No valid chunk outputs (model failed or quota)" };
+          console.error("job", jobId, "failed: No valid chunk outputs");
+          return;
         }
 
         const merged = mergeNotes(chunkOutputs);
-
         const outPath = path.join("server/storage", `${jobId}.json`);
         await fs.mkdir(path.dirname(outPath), { recursive: true });
         await fs.writeFile(outPath, JSON.stringify(merged, null, 2), "utf8");
 
         JOBS[jobId] = { status: "done", createdAt: Date.now(), resultPath: outPath };
-      } catch (errInner) {
-        console.error("Background job error for", jobId, errInner);
-        JOBS[jobId] = { status: "error", createdAt: Date.now(), error: String(errInner) };
+        console.log("Job finished:", jobId, "output:", outPath);
+      } catch (err) {
+        console.error("Background job error:", err);
+        JOBS[jobId] = { status: "error", createdAt: Date.now(), error: String(err) };
       }
     })();
 
     return res.json({ jobId, status: "processing" });
   } catch (err) {
-    console.error(err);
+    console.error("POST /api/notes error:", err);
     return res.status(500).json({ error: String(err) });
   }
 });
 
-/* ----------------------
-   GET /status & download
-   ---------------------- */
+// Preserve previous GET endpoints
 app.get("/api/notes/:id", async (req, res) => {
   console.log("GET request for:", req.params.id);
-  console.log("Current JOBS object:", JOBS);
-
   const id = req.params.id;
   const j = JOBS[id];
-
-  if (!j) return res.status(404).json({ error: "job_not_found" });
-
+  if (!j) {
+    // attempt to load from disk if file exists
+    const possible = path.join("server/storage", `${id}.json`);
+    try {
+      const content = await fs.readFile(possible, "utf8");
+      return res.json({ status: "done", notes: JSON.parse(content) });
+    } catch {
+      return res.status(404).json({ error: "job_not_found" });
+    }
+  }
   if (j.status === "done") {
     const content = await fs.readFile(j.resultPath, "utf8");
     return res.json({ status: "done", notes: JSON.parse(content) });
   }
-
   return res.json(j);
 });
 
@@ -289,9 +345,6 @@ app.get("/api/notes/:id/download", async (req, res) => {
   res.download(path.resolve(j.resultPath));
 });
 
-/* ----------------------
-   GET /api/notes - List all saved notes
-   ---------------------- */
 app.get("/api/notes", async (req, res) => {
   try {
     const dir = "server/storage";
@@ -304,6 +357,28 @@ app.get("/api/notes", async (req, res) => {
       try {
         const stat = await fs.stat(full);
         const content = await fs.readFile(full, "utf8");
+        const parsed = JSON.parse(content);
+        const jobId = path.basename(f, ".json");
+        jobs.push({
+          jobId,
+          createdAt: stat.ctimeMs || stat.mtimeMs,
+          previewTitle: parsed.title || parsed.name || "Notes",
+          path: full
+        });
+      } catch (err) {
+        console.warn("Failed reading job file:", f, err);
+      }
+    }
+    jobs.sort((a, b) => b.createdAt - a.createdAt);
+    return res.json({ jobs });
+  } catch (err) {
+    console.error("Failed listing jobs:", err);
+    return res.status(500).json({ error: "list_failed" });
+  }
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`Notes service running on ${PORT}`));
         const parsed = JSON.parse(content);
         const jobId = path.basename(f, ".json");
         jobs.push({
