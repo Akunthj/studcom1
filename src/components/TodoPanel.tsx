@@ -45,12 +45,12 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
       return;
     }
     const subjectKey = getStorageKey(activeSubjectId);
-    const subjectTodos = loadSubjectTodos<Todo>(activeSubjectId, subjectKey) ?? [];
+    const initialTodos = loadSubjectTodos<Todo>(activeSubjectId, subjectKey) ?? [];
 
     const legacyMigrated = localStorage.getItem(getLegacyTodoMigrationKey()) === 'true';
     const legacyTodos = legacyMigrated ? null : loadLegacyTodos<Todo>();
     if (legacyTodos && !legacyMigrated) {
-      const mergedTodos = mergeLegacyTodos(subjectTodos, legacyTodos);
+      const mergedTodos = mergeLegacyTodos(initialTodos, legacyTodos);
       setTodos(mergedTodos);
       localStorage.setItem(subjectKey, JSON.stringify(mergedTodos));
       finalizeLegacyTodoMigration();
@@ -61,11 +61,10 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
       markLegacyTodoMigrationChecked();
     }
 
-    setTodos(subjectTodos);
+    setTodos(initialTodos);
   }, [activeSubjectId]);
 
-  const syncTodosToServer = async (todos: Todo[]) => {
-    void todos;
+  const syncTodosToServer = async (_todos: Todo[]) => {
     // TODO: Implement server sync when backend is ready
     // await supabase.from('todos').upsert(todos);
   };
