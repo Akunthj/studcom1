@@ -94,7 +94,11 @@ export async function getDB(): Promise<IDBPDatabase<StudcomDB>> {
   }
 
   if (dbInstance && currentDbName !== dbName) {
-    dbInstance.close();
+    try {
+      dbInstance.close();
+    } catch (error) {
+      console.warn('Failed to close previous database instance', error);
+    }
   }
 
   currentDbName = dbName;

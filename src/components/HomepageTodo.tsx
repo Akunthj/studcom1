@@ -3,8 +3,8 @@ import { Check, Circle, Trash2, Plus } from 'lucide-react';
 import { Subject } from '@/lib/types';
 import {
   finalizeLegacyTodoMigration,
-  getLegacySubjectTodoKey,
   getLegacyTodoMigrationKey,
+  getUnscopedSubjectTodoKey,
   loadLegacyTodos,
   markLegacyTodoMigrationChecked,
   mergeLegacyTodos,
@@ -42,7 +42,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
 
     subjects.forEach((subject) => {
       const scopedKey = getStorageKey(subject.id);
-      const legacyKey = getLegacySubjectTodoKey(subject.id);
+      const legacyKey = getUnscopedSubjectTodoKey(subject.id);
       let saved = localStorage.getItem(scopedKey);
       if (!saved && scopedKey !== legacyKey) {
         const legacySaved = localStorage.getItem(legacyKey);

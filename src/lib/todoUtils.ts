@@ -24,7 +24,7 @@ export const getLegacyTodoStorageKey = () => getScopedStorageKey(legacyTodoStora
 
 export const getLegacyTodoMigrationKey = () => getScopedStorageKey(legacyTodoMigrationKey);
 
-export const getLegacySubjectTodoKey = (subjectId: string) =>
+export const getUnscopedSubjectTodoKey = (subjectId: string) =>
   `studcom:todos:subject:${subjectId}`;
 
 export const loadLegacyTodos = <T>() => {
