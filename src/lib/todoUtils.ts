@@ -40,7 +40,7 @@ export const loadLegacyTodos = <T>() => {
 
 export const finalizeLegacyTodoMigration = () => {
   const scopedKey = getLegacyTodoStorageKey();
-  if (localStorage.getItem(scopedKey)) {
+  if (localStorage.getItem(scopedKey) && localStorage.getItem(legacyTodoStorageKey)) {
     localStorage.removeItem(legacyTodoStorageKey);
   }
   localStorage.removeItem(scopedKey);

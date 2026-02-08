@@ -33,7 +33,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   const subjectIdFromUrl = searchParams.get('subject');
   const activeSubjectId = currentSubjectId ?? subjectIdFromUrl;
   const [todos, setTodos] = useState<Todo[]>([]);
-  const hasLoadedForSubject = useRef(false);
+  const hasLoadedTodos = useRef(false);
   const [inputText, setInputText] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,11 +43,11 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   useEffect(() => {
     if (!activeSubjectId) {
       setTodos([]);
-      hasLoadedForSubject.current = false;
+      hasLoadedTodos.current = false;
       return;
     }
 
-    hasLoadedForSubject.current = false;
+    hasLoadedTodos.current = false;
     const subjectKey = getStorageKey(activeSubjectId);
     const legacySubjectKey = getUnscopedSubjectTodoKey(activeSubjectId);
     let subjectTodos: Todo[] = [];
@@ -83,12 +83,12 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     }
 
     setTodos(subjectTodos);
-    hasLoadedForSubject.current = true;
+    hasLoadedTodos.current = true;
   }, [activeSubjectId]);
 
   // Save todos to localStorage whenever they change
   useEffect(() => {
-    if (!activeSubjectId || !hasLoadedForSubject.current) {
+    if (!activeSubjectId || !hasLoadedTodos.current) {
       return;
     }
     localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(todos));
