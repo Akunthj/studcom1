@@ -25,6 +25,28 @@ import NOTES_SCHEMA from "./schema.json" with { type: "json" };
 const app = express();
 app.use(express.json());
 
+// Diagnostic request logger: logs request details and response status
+// Helps identify duplicate/repeated requests and their origin
+const uid = (() => { let i = 0; return () => (++i).toString(36) + Date.now().toString(36); })();
+app.use((req, res, next) => {
+  try {
+    req._rid = uid();
+    const ifNoneMatch = req.headers['if-none-match'] || '';
+    const ifModifiedSince = req.headers['if-modified-since'] || '';
+    const referer = req.headers['referer'] || '';
+    console.log(`[REQ] ${new Date().toISOString()} | rid:${req._rid} | ${req.ip || '-'} | ${req.method} ${req.originalUrl || req.url} | ua:${(req.headers['user-agent']||'').slice(0,30)} | if-none-match:${ifNoneMatch?'yes':'no'} | if-modified-since:${ifModifiedSince?'yes':'no'} | referer:${referer||'none'}`);
+    res.on('finish', () => {
+      console.log(`[RES] ${new Date().toISOString()} | rid:${req._rid} | ${res.statusCode} | ${res.getHeader('content-length')||0}B`);
+    });
+  } catch (e) {
+    console.warn('Request logger error', e);
+  }
+  next();
+});
+
+// Quick favicon handler to avoid browser repeatedly requesting /favicon.ico
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 const upload = multer({ dest: "server/tmp_uploads/" });
 const ajv = new Ajv();
 const validate = ajv.compile(NOTES_SCHEMA);
