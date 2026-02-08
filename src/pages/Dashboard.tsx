@@ -270,7 +270,7 @@ export const Dashboard: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="min-h-0 h-full overflow-y-auto">
+            <div className="min-h-0 h-full flex-1 overflow-y-auto">
               <HomepageTodo subjects={subjects} />
             </div>
           </div>
