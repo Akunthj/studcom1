@@ -249,7 +249,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex flex-col gap-3 h-full">
               {/* Exam Calendar */}
               <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
-              <div className="flex flex-wrap items-center gap-3 mt-auto">
+              <div className="flex flex-wrap items-center gap-3 mt-3 xl:mt-auto">
                 <div className="relative w-full max-w-sm flex-1">
                   <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
                   <input
