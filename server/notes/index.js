@@ -98,7 +98,12 @@ REQUIRED TOP-LEVEL KEYS:
 - questions (array of strings)
 - flashcards (array of {question, answer})
 
-If anything is missing, include the key with an empty string or empty array.
+CRITICAL INSTRUCTIONS:
+- Return ONLY valid JSON with all required keys
+- If output is too long, shorten summary and sections but ALWAYS return complete valid JSON
+- Never truncate or return incomplete JSON
+- Include empty arrays/strings for missing content rather than omitting keys
+- No markdown, no code fences, no explanations
 
 Text:
 ---
@@ -109,8 +114,8 @@ ${text}
       }
     ],
     generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 4000
+      temperature: 0.1,
+      maxOutputTokens: 2500
     }
   };
 
@@ -266,8 +271,13 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
         // remove temp upload
         await fs.unlink(f.path).catch(() => {});
 
+        // safety guard: text must have minimum content
+        if (!text || text.length < 200) {
+          throw new Error("Extracted text too small or empty");
+        }
+
         // larger chunks: fewer API calls, more context, less quota waste
-        const chunks = chunkText(text, { maxChars: 150000, overlapChars: 2000 });
+        const chunks = chunkText(text, { maxChars: 180000, overlapChars: 0 });
         console.log(`job=${jobId} split into ${chunks.length} chunk(s)`);
 
         const chunkOutputs = [];
@@ -276,43 +286,39 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
           console.log(`job=${jobId} processing chunk ${i + 1}/${chunks.length}`);
 
           let parsed = null;
-          let attempt = 0;
-          const maxAttempts = 2;
-          while (attempt < maxAttempts) {
-            attempt++;
+          try {
+            parsed = await callGeminiStructured(chunk, 60000);
+          } catch (err) {
+            console.warn(`job=${jobId} chunk=${i} failed:`, err.message || err);
+            
+            // write debug info
             try {
-              parsed = await callGeminiStructured(chunk, 60000);
-              break;
-            } catch (err) {
-              console.warn(`job=${jobId} chunk=${i} attempt=${attempt} failed:`, err.message || err);
-              if (attempt >= maxAttempts) {
-                // write debug info
-                try {
-                  await fs.mkdir(DEBUG_DIR, { recursive: true });
-                  await fs.writeFile(
-                    path.join(DEBUG_DIR, `${jobId}-chunk-${i}-error.json`),
-                    JSON.stringify({ jobId, chunkIndex: i, attemptError: String(err.message || err).slice(0, 2000), chunkPreview: chunk.slice(0, 2000), ts: Date.now() }, null, 2),
-                    "utf8"
-                  );
-                } catch (wErr) {
-                  console.warn("Failed to write debug file:", wErr);
-                }
-
-                // quota-specific: abort job early and mark error
-                if ((String(err.message || "").toLowerCase().includes("quota")) || (String(err.message || "").toLowerCase().includes("quota_exceeded")) || (String(err.message || "").toLowerCase().includes("resource_exhausted"))) {
-                  const em = { jobId, status: "error", createdAt: Date.now(), error: "Quota exceeded: " + String(err.message || err) };
-                  JOBS[jobId] = em;
-                  await writeJobMeta(jobId, em);
-                  console.error("Job failed due to quota. job:", jobId);
-                  return;
-                }
-                // otherwise retry (loop)
-              }
+              await fs.mkdir(DEBUG_DIR, { recursive: true });
+              await fs.writeFile(
+                path.join(DEBUG_DIR, `${jobId}-chunk-${i}-error.json`),
+                JSON.stringify({ jobId, chunkIndex: i, error: String(err.message || err).slice(0, 2000), chunkPreview: chunk.slice(0, 2000), ts: Date.now() }, null, 2),
+                "utf8"
+              );
+            } catch (wErr) {
+              console.warn("Failed to write debug file:", wErr);
             }
-          } // end attempts
+
+            // quota-specific: abort job early and mark error
+            if ((String(err.message || "").toLowerCase().includes("quota")) || (String(err.message || "").toLowerCase().includes("quota_exceeded")) || (String(err.message || "").toLowerCase().includes("resource_exhausted"))) {
+              const em = { jobId, status: "error", createdAt: Date.now(), error: "Quota exceeded: " + String(err.message || err) };
+              JOBS[jobId] = em;
+              await writeJobMeta(jobId, em);
+              console.error("Job failed due to quota. job:", jobId);
+              return;
+            }
+            
+            // non-quota error: continue to next chunk
+            console.warn(`job=${jobId} chunk ${i} produced no output - skipping`);
+            continue;
+          }
 
           if (!parsed) {
-            console.warn(`job=${jobId} chunk ${i} produced no parsed output after retries - skipping`);
+            console.warn(`job=${jobId} chunk ${i} produced no parsed output - skipping`);
             continue;
           }
 
