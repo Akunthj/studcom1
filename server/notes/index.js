@@ -119,22 +119,25 @@ ${text}
     }
   };
 
-  // fetch with timeout via Promise.race
-  const fetchPromise = fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Gemini timeout after " + (timeoutMs / 1000) + "s")), timeoutMs)
-  );
+  // fetch with AbortController timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let resp;
   try {
-    resp = await Promise.race([fetchPromise, timeoutPromise]);
+    resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
   } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Gemini request timed out after " + (timeoutMs / 1000) + "s");
+    }
     throw new Error("Network/timeout error when calling Gemini: " + String(err.message || err));
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   let dataText;
@@ -266,7 +269,8 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
     // background processing (fire-and-forget)
     (async () => {
       try {
-        console.log("Starting processing for job:", jobId);
+        console.log("\n[WORKER] Started for job:", jobId);
+        console.log("[WORKER] Extracting text from file");
         const text = await extractTextFromFile(f.path, f.mimetype);
         // remove temp upload
         await fs.unlink(f.path).catch(() => {});
@@ -278,16 +282,18 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
 
         // larger chunks: fewer API calls, more context, less quota waste
         const chunks = chunkText(text, { maxChars: 180000, overlapChars: 0 });
-        console.log(`job=${jobId} split into ${chunks.length} chunk(s)`);
+        console.log(`[WORKER] Text split into ${chunks.length} chunk(s)`);
 
         const chunkOutputs = [];
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
-          console.log(`job=${jobId} processing chunk ${i + 1}/${chunks.length}`);
+          console.log(`[WORKER] Processing chunk ${i + 1}/${chunks.length}`);
 
           let parsed = null;
           try {
+            console.log(`[WORKER] Calling Gemini for chunk ${i + 1}`);
             parsed = await callGeminiStructured(chunk, 60000);
+            console.log(`[WORKER] Gemini response received for chunk ${i + 1}`);
           } catch (err) {
             console.warn(`job=${jobId} chunk=${i} failed:`, err.message || err);
             
@@ -362,33 +368,57 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
             console.log("Job succeeded via fallback summary:", jobId);
             return;
           } catch (fallbackErr) {
-            console.error("Fallback summary failed:", fallbackErr);
-            const em = { jobId, status: "error", createdAt: Date.now(), error: "No valid chunk outputs and fallback failed: " + String(fallbackErr).slice(0, 200) };
+            console.error("[WORKER] Fallback summary failed:", fallbackErr && (fallbackErr.message || String(fallbackErr)));
+            const em = { jobId, status: "error", createdAt: Date.now(), error: "No valid chunk outputs and fallback failed: " + String(fallbackErr && (fallbackErr.message || fallbackErr)).slice(0, 200) };
             JOBS[jobId] = em;
             await writeJobMeta(jobId, em);
-            console.error("job", jobId, "failed: No valid chunk outputs and fallback failed");
+            console.error("[WORKER] Job failed - no valid outputs:", jobId);
             return;
           }
         }
 
         // merge, persist result
+        console.log("[WORKER] Merging chunk outputs");
         const merged = mergeNotes(chunkOutputs);
+        console.log("[WORKER] Writing output to disk");
         const outPath = path.join(STORAGE_DIR, `${jobId}.json`);
         await fs.mkdir(path.dirname(outPath), { recursive: true });
         await fs.writeFile(outPath, JSON.stringify(merged, null, 2), "utf8");
 
+        console.log("[WORKER] Marking job as done");
         const doneMeta = { jobId, status: "done", createdAt: Date.now(), resultPath: outPath };
         JOBS[jobId] = doneMeta;
         await writeJobMeta(jobId, doneMeta);
 
-        console.log("Job finished:", jobId, "output:", outPath);
+        console.log("[WORKER] Job marked as done:", jobId);
       } catch (bgErr) {
-        console.error("Background job error for", jobId, bgErr);
-        const em = { jobId, status: "error", createdAt: Date.now(), error: String(bgErr) };
+        console.error("[WORKER] Error for job:", jobId, bgErr && (bgErr.message || String(bgErr)));
+        const em = { jobId, status: "error", createdAt: Date.now(), error: String(bgErr && (bgErr.message || bgErr)) };
         JOBS[jobId] = em;
-        await writeJobMeta(jobId, em);
+        try {
+          await writeJobMeta(jobId, em);
+        } catch (metaErr) {
+          console.error("[WORKER] Failed to write error meta:", metaErr);
+        }
       }
     })();
+
+    // Set hard timeout: if job is still processing after 3 minutes, mark as error
+    setTimeout(() => {
+      if (JOBS[jobId] && JOBS[jobId].status === "processing") {
+        console.error("[TIMEOUT] Job exceeded 3-minute limit:", jobId);
+        const timeoutMeta = {
+          jobId,
+          status: "error",
+          createdAt: Date.now(),
+          error: "Processing timeout exceeded (3 minutes)"
+        };
+        JOBS[jobId] = timeoutMeta;
+        writeJobMeta(jobId, timeoutMeta).catch((err) => {
+          console.error("[TIMEOUT] Failed to write timeout meta:", err);
+        });
+      }
+    }, 180000);
 
     return res.json({ jobId, status: "processing" });
   } catch (err) {
