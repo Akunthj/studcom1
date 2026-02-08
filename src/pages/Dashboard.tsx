@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,12 +14,13 @@ import { demoStorage, isDemoMode } from '@/lib/demoMode';
 export const Dashboard: React.FC = () => {
   const { user, loading: authLoading, isDemo } = useAuth();
   const navigate = useNavigate();
+
   const [subjects, setSubjects] = useState<SubjectWithProgress[]>([]);
   const [recentlyAccessedSubjects, setRecentlyAccessedSubjects] = useState<SubjectWithProgress[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [compactView, setCompactView] = useState(() => {
+  const [compactView, setCompactView] = useState<boolean>(() => {
     const saved = localStorage.getItem('studcom:compact_view');
     return saved === 'true';
   });
@@ -30,19 +32,24 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchSubjects();
+    } else if (isDemo) {
+      // in demo mode we can also fetch local demo subjects
+      fetchSubjects();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isDemo]);
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = async (): Promise<void> => {
     try {
       setLoading(true);
 
       if (isDemo) {
+        // demo mode: use demoStorage helpers
         const demoSubjects = demoStorage.getSubjects();
         const demoTopics = demoStorage.getTopics();
         const demoProgress = demoStorage.getProgress();
 
-        const subjectsWithProgress = demoSubjects.map((subject) => {
+        const subjectsWithProgress: SubjectWithProgress[] = demoSubjects.map((subject) => {
           const subjectTopics = demoTopics.filter((t) => t.subject_id === subject.id);
           const totalTopics = subjectTopics.length;
 
@@ -51,7 +58,7 @@ export const Dashboard: React.FC = () => {
               ...subject,
               progress_percentage: 0,
               last_accessed: new Date().toISOString(),
-            };
+            } as SubjectWithProgress;
           }
 
           const completedTopics = subjectTopics.filter((topic) =>
@@ -64,11 +71,12 @@ export const Dashboard: React.FC = () => {
             ...subject,
             progress_percentage: progressPercentage,
             last_accessed: new Date().toISOString(),
-          };
+          } as SubjectWithProgress;
         });
 
         setSubjects(subjectsWithProgress);
 
+        // compute recently accessed
         const recentItems = demoStorage.getRecentlyAccessed();
         const recentIds = recentItems.map((item) => item.subject_id);
         const recentSubjects = subjectsWithProgress
@@ -78,7 +86,7 @@ export const Dashboard: React.FC = () => {
             return {
               ...s,
               last_accessed: recentItem?.last_accessed_at || s.last_accessed,
-            };
+            } as SubjectWithProgress;
           })
           .sort((a, b) => {
             const timeA = new Date(a.last_accessed || 0).getTime();
@@ -88,81 +96,84 @@ export const Dashboard: React.FC = () => {
           .slice(0, 4);
 
         setRecentlyAccessedSubjects(recentSubjects);
-      } else {
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from('subjects')
-          .select('*')
-          .order('name');
+        return;
+      }
 
-        if (subjectsError) throw subjectsError;
+      // production: fetch from Supabase
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('*')
+        .order('name');
 
-        const { data: topicsData, error: topicsError } = await supabase
-          .from('topics')
-          .select('*');
+      if (subjectsError) throw subjectsError;
 
-        if (topicsError) throw topicsError;
+      const { data: topicsData, error: topicsError } = await supabase
+        .from('topics')
+        .select('*');
 
-        const { data: progressData, error: progressError } = await supabase
-          .from('user_progress')
-          .select('topic_id, completed')
-          .eq('user_id', user!.id);
+      if (topicsError) throw topicsError;
 
-        if (progressError && progressError.code !== 'PGRST116') throw progressError;
+      const { data: progressData, error: progressError } = await supabase
+        .from('user_progress')
+        .select('topic_id, completed')
+        .eq('user_id', user!.id);
 
-        const subjectsWithProgress = (subjectsData || []).map((subject: Subject) => {
-          const subjectTopics = (topicsData || []).filter((t) => t.subject_id === subject.id);
-          const totalTopics = subjectTopics.length;
+      if (progressError && (progressError as any).code !== 'PGRST116') throw progressError;
 
-          if (totalTopics === 0) {
-            return {
-              ...subject,
-              progress_percentage: 0,
-              last_accessed: new Date().toISOString(),
-            };
-          }
+      const subjectsWithProgress: SubjectWithProgress[] = (subjectsData || []).map((subject: Subject) => {
+        const subjectTopics = (topicsData || []).filter((t) => t.subject_id === subject.id);
+        const totalTopics = subjectTopics.length;
 
-          const completedTopics = subjectTopics.filter((topic) =>
-            (progressData || []).some((p) => p.topic_id === topic.id && p.completed)
-          ).length;
-
-          const progressPercentage = Math.round((completedTopics / totalTopics) * 100);
-
+        if (totalTopics === 0) {
           return {
             ...subject,
-            progress_percentage: progressPercentage,
+            progress_percentage: 0,
             last_accessed: new Date().toISOString(),
-          };
+          } as SubjectWithProgress;
+        }
+
+        const completedTopics = subjectTopics.filter((topic) =>
+          (progressData || []).some((p: any) => p.topic_id === topic.id && p.completed)
+        ).length;
+
+        const progressPercentage = Math.round((completedTopics / totalTopics) * 100);
+
+        return {
+          ...subject,
+          progress_percentage: progressPercentage,
+          last_accessed: new Date().toISOString(),
+        } as SubjectWithProgress;
+      });
+
+      setSubjects(subjectsWithProgress);
+
+      // recently accessed (production)
+      const { data: recentData, error: recentError } = await supabase
+        .from('user_recently_accessed')
+        .select('subject_id, last_accessed_at')
+        .eq('user_id', user!.id)
+        .order('last_accessed_at', { ascending: false })
+        .limit(4);
+
+      if (recentError && (recentError as any).code !== 'PGRST116') throw recentError;
+
+      const recentIds = (recentData || []).map((item: any) => item.subject_id);
+      const recentSubjects = subjectsWithProgress
+        .filter((s) => recentIds.includes(s.id))
+        .map((s) => {
+          const recentItem = (recentData || []).find((r: any) => r.subject_id === s.id);
+          return {
+            ...s,
+            last_accessed: recentItem?.last_accessed_at || s.last_accessed,
+          } as SubjectWithProgress;
+        })
+        .sort((a, b) => {
+          const timeA = new Date(a.last_accessed || 0).getTime();
+          const timeB = new Date(b.last_accessed || 0).getTime();
+          return timeB - timeA;
         });
 
-        setSubjects(subjectsWithProgress);
-
-        const { data: recentData, error: recentError } = await supabase
-          .from('user_recently_accessed')
-          .select('subject_id, last_accessed_at')
-          .eq('user_id', user!.id)
-          .order('last_accessed_at', { ascending: false })
-          .limit(4);
-
-        if (recentError && recentError.code !== 'PGRST116') throw recentError;
-
-        const recentIds = (recentData || []).map((item) => item.subject_id);
-        const recentSubjects = subjectsWithProgress
-          .filter((s) => recentIds.includes(s.id))
-          .map((s) => {
-            const recentItem = (recentData || []).find((r) => r.subject_id === s.id);
-            return {
-              ...s,
-              last_accessed: recentItem?.last_accessed_at || s.last_accessed,
-            };
-          })
-          .sort((a, b) => {
-            const timeA = new Date(a.last_accessed || 0).getTime();
-            const timeB = new Date(b.last_accessed || 0).getTime();
-            return timeB - timeA;
-          });
-
-        setRecentlyAccessedSubjects(recentSubjects);
-      }
+      setRecentlyAccessedSubjects(recentSubjects);
     } catch (error) {
       console.error('Error fetching subjects:', error);
     } finally {
@@ -174,11 +185,11 @@ export const Dashboard: React.FC = () => {
     subject.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSubjectClick = (subject: Subject) => {
+  const handleSubjectClick = (subject: Subject | { id: string }) => {
     if (isDemo) {
-      demoStorage.updateRecentlyAccessed(subject.id);
+      demoStorage.updateRecentlyAccessed((subject as Subject).id);
     }
-    navigate(`/study?subject=${subject.id}`);
+    navigate(`/study?subject=${(subject as Subject).id}`);
   };
 
   const handleDeleteSubject = async (subject: Subject) => {
@@ -188,34 +199,27 @@ export const Dashboard: React.FC = () => {
 
     try {
       if (isDemo) {
-        // Delete from demo storage
         const allSubjects = demoStorage.getSubjects();
         const updatedSubjects = allSubjects.filter(s => s.id !== subject.id);
         demoStorage.setSubjects(updatedSubjects);
 
-        // Also delete associated topics
         const allTopics = demoStorage.getTopics();
         const updatedTopics = allTopics.filter(t => t.subject_id !== subject.id);
         demoStorage.setTopics(updatedTopics);
 
-        // Delete associated resources
         const allResources = demoStorage.getResources();
         const topicIdsToDelete = allTopics.filter(t => t.subject_id === subject.id).map(t => t.id);
         const updatedResources = allResources.filter(r => !topicIdsToDelete.includes(r.topic_id));
         demoStorage.setResources(updatedResources);
 
-        // Refresh the subjects list
         fetchSubjects();
       } else {
-        // Delete from Supabase - cascade delete should handle topics and resources
         const { error } = await supabase
           .from('subjects')
           .delete()
           .eq('id', subject.id);
 
         if (error) throw error;
-        
-        // Refresh the subjects list
         fetchSubjects();
       }
     } catch (error) {
@@ -226,6 +230,7 @@ export const Dashboard: React.FC = () => {
 
   const handleAddSubjectSuccess = () => {
     fetchSubjects();
+    setShowAddModal(false);
   };
 
   if (authLoading || loading) {
@@ -245,115 +250,96 @@ export const Dashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main content */}
+
+          {/* MAIN CONTENT */}
           <div className="flex-1 flex flex-col gap-5">
+
             {/* Exam Calendar */}
             <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
 
+            {/* Search + Controls */}
             <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search subjects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search subjects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
 
-            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <BookMarked className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <span className="font-semibold text-gray-900 dark:text-white">
-                Subjects: {subjects.length}
-              </span>
-            </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <BookMarked className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  Subjects: {subjects.length}
+                </span>
+              </div>
 
-            <button
-              onClick={() => setCompactView(!compactView)}
-              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              title={compactView ? 'Normal view' : 'Compact view'}
-              aria-label={compactView ? 'Switch to normal view' : 'Switch to compact view'}
-            >
-              {compactView ? (
-                <Maximize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-              ) : (
-                <Minimize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-              )}
-            </button>
-          </div>
-
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Quick Access</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() => setShowAddModal(true)}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
+                onClick={() => setCompactView(!compactView)}
+                className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                title={compactView ? 'Normal view' : 'Compact view'}
+                aria-label={compactView ? 'Switch to normal view' : 'Switch to compact view'}
               >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Add New Subject
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Start tracking a new subject
-                </p>
-              </button>
-
-<button
-                onClick={() => navigate('/study')}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-green-50 dark:bg-green-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <MessageCircle className={`text-green-600 dark:text-green-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Ask AI Doubt
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Get instant help
-                </p>
+                {compactView ? (
+                  <Maximize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                ) : (
+                  <Minimize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                )}
               </button>
             </div>
-          </div>
 
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">All Subjects</h2>
-            {filteredSubjects.length > 0 ? (
-              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${compactView ? 'gap-3' : 'gap-4'}`}>
-                {filteredSubjects.map((subject) => (
-                  <div
-                    key={subject.id}
-                    className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 group relative
-                      ${compactView ? 'p-4' : 'p-5'}
-                      transition-all duration-200 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-0.5
-                      motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0 motion-reduce:transition-none
-                    `}
-                  >
-                    <div 
+            {/* Quick Access */}
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Quick Access</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left ${compactView ? 'p-4' : 'p-5'}`}
+                >
+                  <div className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200 ${compactView ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                    <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
+                  </div>
+                  <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
+                    Add New Subject
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Start tracking a new subject
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => navigate('/study')}
+                  className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left ${compactView ? 'p-4' : 'p-5'}`}
+                >
+                  <div className={`rounded-lg flex items-center justify-center mb-3 bg-green-50 dark:bg-green-900/30 group-hover:scale-110 transition-transform duration-200 ${compactView ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                    <MessageCircle className={`text-green-600 dark:text-green-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
+                  </div>
+                  <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
+                    Ask AI Doubt
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Get instant help
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Subjects Grid */}
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">All Subjects</h2>
+              {filteredSubjects.length > 0 ? (
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${compactView ? 'gap-3' : 'gap-4'}`}>
+                  {filteredSubjects.map((subject) => (
+                    <div
+                      key={subject.id}
+                      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 group relative ${compactView ? 'p-4' : 'p-5'} transition-all duration-200 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-0.5`}
                       onClick={() => handleSubjectClick(subject)}
-                      className="cursor-pointer"
                     >
                       <div className="flex items-start gap-3 mb-3">
-                        <div
-                          className={`rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200 motion-reduce:group-hover:scale-100 motion-reduce:transition-none
-                            ${compactView ? 'w-12 h-12 text-2xl' : 'w-14 h-14 text-3xl'}
-                          `}
-                          style={{ backgroundColor: subject.color + '20', color: subject.color }}
-                        >
+                        <div className={`rounded-xl flex items-center justify-center flex-shrink-0 ${compactView ? 'w-12 h-12 text-2xl' : 'w-14 h-14 text-3xl'}`} style={{ backgroundColor: subject.color + '20', color: subject.color }}>
                           {subject.icon || '📚'}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -370,75 +356,57 @@ export const Dashboard: React.FC = () => {
 
                       <div>
                         <div className="flex justify-between items-center mb-1.5">
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                            Progress
-                          </span>
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">
-                            {subject.progress_percentage || 0}%
-                          </span>
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Progress</span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{subject.progress_percentage || 0}%</span>
                         </div>
 
                         <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden ${compactView ? 'h-1.5' : 'h-2'}`}>
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${subject.progress_percentage || 0}%`,
-                              backgroundColor: subject.color,
-                            }}
-                          ></div>
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${subject.progress_percentage || 0}%`, backgroundColor: subject.color }}></div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSubject(subject);
-                      }}
-                      className="absolute top-2 right-2 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
-                      title="Delete subject"
-                    >
-                      <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSubject(subject);
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+                        title="Delete subject"
+                      >
+                        <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <BookOpen className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No subjects found</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">{searchQuery ? 'Try adjusting your search' : 'Get started by adding your first subject'}</p>
+                  {!searchQuery && (
+                    <button onClick={() => setShowAddModal(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium">
+                      <Plus className="w-4 h-4" />
+                      Add Your First Subject
                     </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                <BookOpen className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  No subjects found
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {searchQuery ? 'Try adjusting your search' : 'Get started by adding your first subject'}
-                </p>
-                {!searchQuery && (
-                  <button
-                    onClick={() => setShowAddModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Your First Subject
-                  </button>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          
-          {/* Sidebar with Notes Widget */}
+
+          {/* Sidebar */}
           <aside className="w-full lg:w-80 flex flex-col gap-5">
             <NotesWidget />
           </aside>
+
         </div>
       </div>
 
       {showAddModal && (
-        <AddItemModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={handleAddSubjectSuccess}
-        />
+        <AddItemModal onClose={() => setShowAddModal(false)} onSuccess={handleAddSubjectSuccess} />
       )}
     </div>
   );
 };
+
+export default Dashboard;

@@ -38,19 +38,48 @@ export default function NotesMaker() {
   };
 
   const poll = (id: string) => {
+    const maxAttempts = 150; // 5 minutes at 2-second intervals
+    let attempts = 0;
+
     const interval = setInterval(async () => {
-      const res = await fetch(`/api/notes/${id}`);
-      const json = await res.json();
+      attempts++;
 
-      if (json.status === "done") {
-        clearInterval(interval);
-        setNotes(json.notes);
-        setStatus("done");
-      }
+      try {
+        const res = await fetch(`/api/notes/${id}`);
+        const json = await res.json();
 
-      if (json.status === "error") {
+        if (!res.ok) {
+          clearInterval(interval);
+          setError(json.error || "Failed to check job status");
+          setStatus("error");
+          return;
+        }
+
+        if (json.status === "done") {
+          clearInterval(interval);
+          setNotes(json.notes);
+          setStatus("done");
+          return;
+        }
+
+        if (json.status === "error") {
+          clearInterval(interval);
+          // Surface the backend error message
+          setError(json.error || "Processing failed");
+          setStatus("error");
+          return;
+        }
+
+        // Check timeout
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setError("Processing timeout (5 minutes exceeded)");
+          setStatus("error");
+          return;
+        }
+      } catch (err) {
         clearInterval(interval);
-        setError("Processing failed");
+        setError("Network error: " + String(err).slice(0, 100));
         setStatus("error");
       }
     }, 2000);
