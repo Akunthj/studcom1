@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Circle, Trash2, Plus } from 'lucide-react';
 import { getScopedStorageKey } from '@/lib/storageScope';
+import { getLegacySubjectTodoKey } from '@/lib/todoUtils';
 
 interface Todo {
   id: string;
@@ -24,7 +25,7 @@ export const SubjectTodo: React.FC<SubjectTodoProps> = ({ subjectId }) => {
     }
 
     const key = getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
-    const legacyKey = `studcom:todos:subject:${subjectId}`;
+    const legacyKey = getLegacySubjectTodoKey(subjectId);
     let saved = localStorage.getItem(key);
     if (!saved && key !== legacyKey) {
       const legacySaved = localStorage.getItem(legacyKey);

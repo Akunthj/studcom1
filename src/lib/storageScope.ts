@@ -7,27 +7,27 @@ export const getScopedStorageKey = (key: string) => {
 };
 
 export const readScopedStorageItem = (key: string) => {
-  const scopedKey = getScopedStorageKey(key);
+  const userId = localStorage.getItem(LOCAL_USER_ID_KEY);
+  const scopedKey = userId ? `${userId}:${key}` : key;
   const stored = localStorage.getItem(scopedKey);
-  if (stored !== null || scopedKey === key) {
+  if (stored !== null) {
     return stored;
   }
-  const legacy = localStorage.getItem(key);
-  if (legacy !== null) {
-    const userId = localStorage.getItem(LOCAL_USER_ID_KEY);
-    const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
-    if (!userId) {
-      return legacy;
-    }
-    if (!legacyOwner) {
-      localStorage.setItem(LEGACY_OWNER_KEY, userId);
-    }
-    if (!legacyOwner || legacyOwner === userId) {
-      localStorage.setItem(scopedKey, legacy);
-      localStorage.removeItem(key);
-      return legacy;
-    }
+  if (!userId) {
     return null;
+  }
+  const legacy = localStorage.getItem(key);
+  if (legacy === null) {
+    return null;
+  }
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  if (!legacyOwner) {
+    localStorage.setItem(LEGACY_OWNER_KEY, userId);
+  }
+  if (!legacyOwner || legacyOwner === userId) {
+    localStorage.setItem(scopedKey, legacy);
+    localStorage.removeItem(key);
+    return legacy;
   }
   return null;
 };

@@ -4,6 +4,7 @@ import { X, Plus, Trash2, Check, Circle, Filter } from 'lucide-react';
 import { useSubject } from '@/contexts/SubjectContext';
 import {
   finalizeLegacyTodoMigration,
+  getLegacySubjectTodoKey,
   getLegacyTodoMigrationKey,
   loadLegacyTodos,
   markLegacyTodoMigrationChecked,
@@ -48,7 +49,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
 
     setHasLoadedTodos(false);
     const subjectKey = getStorageKey(activeSubjectId);
-    const legacySubjectKey = `studcom:todos:subject:${activeSubjectId}`;
+    const legacySubjectKey = getLegacySubjectTodoKey(activeSubjectId);
     let subjectTodos: Todo[] = [];
     let savedTodos = localStorage.getItem(subjectKey);
     if (!savedTodos && subjectKey !== legacySubjectKey) {
@@ -95,11 +96,6 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     syncTodosToServer(todos);
   }, [todos, activeSubjectId, hasLoadedTodos]);
 
-  const persistTodos = (updatedTodos: Todo[]) => {
-    if (!activeSubjectId) return;
-    localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(updatedTodos));
-  };
-
   const syncTodosToServer = async (todos: Todo[]) => {
     // TODO: Implement server sync when backend is ready
     // await supabase.from('todos').upsert(todos);
@@ -115,30 +111,20 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
       createdAt: Date.now(),
     };
 
-    setTodos((prev) => {
-      const updated = [newTodo, ...prev];
-      persistTodos(updated);
-      return updated;
-    });
+    setTodos((prev) => [newTodo, ...prev]);
     setInputText('');
   };
 
   const toggleTodo = (id: string) => {
-    setTodos((prev) => {
-      const updated = prev.map((todo) =>
+    setTodos((prev) =>
+      prev.map((todo) =>
         todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      );
-      persistTodos(updated);
-      return updated;
-    });
+      )
+    );
   };
 
   const deleteTodo = (id: string) => {
-    setTodos((prev) => {
-      const updated = prev.filter((todo) => todo.id !== id);
-      persistTodos(updated);
-      return updated;
-    });
+    setTodos((prev) => prev.filter((todo) => todo.id !== id));
   };
 
   const startEdit = (todo: Todo) => {
@@ -149,13 +135,11 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   const saveEdit = () => {
     if (!editText.trim() || !editingId) return;
 
-    setTodos((prev) => {
-      const updated = prev.map((todo) =>
+    setTodos((prev) =>
+      prev.map((todo) =>
         todo.id === editingId ? { ...todo, text: editText.trim() } : todo
-      );
-      persistTodos(updated);
-      return updated;
-    });
+      )
+    );
     setEditingId(null);
     setEditText('');
   };
