@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Circle, Trash2, Plus } from 'lucide-react';
+import { getScopedStorageKey } from '@/lib/storageScope';
 
 interface Todo {
   id: string;
@@ -22,8 +23,17 @@ export const SubjectTodo: React.FC<SubjectTodoProps> = ({ subjectId }) => {
       return;
     }
 
-    const key = `studcom:todos:subject:${subjectId}`;
-    const saved = localStorage.getItem(key);
+    const key = getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
+    const legacyKey = `studcom:todos:subject:${subjectId}`;
+    let saved = localStorage.getItem(key);
+    if (!saved && key !== legacyKey) {
+      const legacySaved = localStorage.getItem(legacyKey);
+      if (legacySaved) {
+        localStorage.setItem(key, legacySaved);
+        localStorage.removeItem(legacyKey);
+        saved = legacySaved;
+      }
+    }
     if (saved) {
       try {
         setTodos(JSON.parse(saved));
@@ -37,7 +47,7 @@ export const SubjectTodo: React.FC<SubjectTodoProps> = ({ subjectId }) => {
 
   useEffect(() => {
     if (!subjectId) return;
-    const key = `studcom:todos:subject:${subjectId}`;
+    const key = getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
     localStorage.setItem(key, JSON.stringify(todos));
   }, [todos, subjectId]);
 

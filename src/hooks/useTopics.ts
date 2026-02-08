@@ -1,6 +1,7 @@
 // src/hooks/useTopics.ts
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { readScopedStorageItem, writeScopedStorageItem } from '@/lib/storageScope';
 
 const DEMO_KEY = 'studcom:topics';
 
@@ -14,14 +15,14 @@ export type Topic = {
 
 function readDemo() {
   try {
-    return JSON.parse(localStorage.getItem(DEMO_KEY) || '{}') as Record<string, Topic[]>;
+    return JSON.parse(readScopedStorageItem(DEMO_KEY) || '{}') as Record<string, Topic[]>;
   } catch {
     return {};
   }
 }
 
 function writeDemo(all: Record<string, Topic[]>) {
-  localStorage.setItem(DEMO_KEY, JSON.stringify(all));
+  writeScopedStorageItem(DEMO_KEY, JSON.stringify(all));
 }
 
 export function useTopics(subjectId?: string | null) {

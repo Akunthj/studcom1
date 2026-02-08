@@ -3,12 +3,12 @@ import { Check, Circle, Trash2, Plus } from 'lucide-react';
 import { Subject } from '@/lib/types';
 import {
   finalizeLegacyTodoMigration,
-  legacyTodoMigrationKey,
-  legacyTodoStorageKey,
+  getLegacyTodoMigrationKey,
   loadLegacyTodos,
   markLegacyTodoMigrationChecked,
   mergeLegacyTodos,
 } from '@/lib/todoUtils';
+import { getScopedStorageKey } from '@/lib/storageScope';
 
 interface Todo {
   id: string;
@@ -17,7 +17,8 @@ interface Todo {
   createdAt: number;
 }
 
-const getStorageKey = (subjectId: string) => `studcom:todos:subject:${subjectId}`;
+const getStorageKey = (subjectId: string) =>
+  getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
 
 interface HomepageTodoProps {
   subjects: Subject[];
@@ -39,7 +40,17 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
     const loadedTodos: Record<string, Todo[]> = {};
 
     subjects.forEach((subject) => {
-      const saved = localStorage.getItem(getStorageKey(subject.id));
+      const scopedKey = getStorageKey(subject.id);
+      const legacyKey = `studcom:todos:subject:${subject.id}`;
+      let saved = localStorage.getItem(scopedKey);
+      if (!saved && scopedKey !== legacyKey) {
+        const legacySaved = localStorage.getItem(legacyKey);
+        if (legacySaved) {
+          localStorage.setItem(scopedKey, legacySaved);
+          localStorage.removeItem(legacyKey);
+          saved = legacySaved;
+        }
+      }
       if (saved) {
         try {
           loadedTodos[subject.id] = JSON.parse(saved);
@@ -52,11 +63,8 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
       }
     });
 
-    const legacyMigrated = localStorage.getItem(legacyTodoMigrationKey) === 'true';
-    const legacyTodosRaw = legacyMigrated
-      ? null
-      : localStorage.getItem(legacyTodoStorageKey);
-    const legacyTodos = legacyTodosRaw ? loadLegacyTodos<Todo>() : null;
+    const legacyMigrated = localStorage.getItem(getLegacyTodoMigrationKey()) === 'true';
+    const legacyTodos = legacyMigrated ? null : loadLegacyTodos<Todo>();
     if (legacyTodos && migrationTargetId && !legacyMigrated) {
       const mergedTodos = mergeLegacyTodos(
         loadedTodos[migrationTargetId] || [],
@@ -70,7 +78,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
         );
       }
       finalizeLegacyTodoMigration();
-    } else if (!legacyTodosRaw && !legacyMigrated) {
+    } else if (!legacyTodos && !legacyMigrated) {
       markLegacyTodoMigrationChecked();
     }
 
@@ -130,7 +138,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
   }));
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 h-full min-h-0 flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Universal To-Do</h3>
         <span className="text-xs text-gray-500 dark:text-gray-400">{totalTasks} tasks</span>
@@ -171,7 +179,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+      <div className="max-h-64 overflow-y-auto pr-1 space-y-4">
         {subjects.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
             <Circle className="w-10 h-10 mx-auto mb-2 opacity-50" />

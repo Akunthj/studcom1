@@ -13,44 +13,61 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Local-first user for when Supabase is not available
-const getLocalUserId = (forceNew = false) => {
-  if (forceNew) {
-    localStorage.removeItem('local-user-id');
-  }
-  const storedId = localStorage.getItem('local-user-id');
-  if (storedId) return storedId;
-  const newId =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? `local-user-${crypto.randomUUID()}`
-      : `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  localStorage.setItem('local-user-id', newId);
-  return newId;
+const LEGACY_LOCAL_USER_KEY = 'local-user';
+const LOCAL_USER_EMAIL_KEY = 'local-user-email';
+const LOCAL_USER_ID_KEY = 'local-user-id';
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const getLocalUserStorageKey = (email: string) => `local-user:${normalizeEmail(email)}`;
+
+const generateLocalUserId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? `local-user-${crypto.randomUUID()}`
+    : `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
+const persistLocalUser = (user: User) => {
+  localStorage.setItem(getLocalUserStorageKey(user.email ?? 'local@student.com'), JSON.stringify(user));
+};
+
+const setActiveLocalUser = (user: User) => {
+  if (!user.email) return;
+  localStorage.setItem(LOCAL_USER_EMAIL_KEY, normalizeEmail(user.email));
+  localStorage.setItem(LOCAL_USER_ID_KEY, user.id);
 };
 
 const getLocalUser = (email?: string): User => {
-  const stored = localStorage.getItem('local-user');
+  const fallbackEmail = normalizeEmail(email || localStorage.getItem(LOCAL_USER_EMAIL_KEY) || 'local@student.com');
+  const stored = localStorage.getItem(getLocalUserStorageKey(fallbackEmail));
   if (stored) {
     const parsed = JSON.parse(stored);
-    if (email && parsed.email !== email) {
-      const updated = { ...parsed, email, id: getLocalUserId(true) };
-      localStorage.setItem('local-user', JSON.stringify(updated));
-      return updated;
-    }
+    setActiveLocalUser(parsed);
     return parsed;
   }
-  
+
+  const legacyStored = localStorage.getItem(LEGACY_LOCAL_USER_KEY);
+  if (legacyStored) {
+    const parsed = JSON.parse(legacyStored);
+    const legacyEmail = normalizeEmail(parsed.email || fallbackEmail);
+    const migrated = { ...parsed, email: legacyEmail, id: parsed.id || generateLocalUserId() };
+    persistLocalUser(migrated);
+    localStorage.removeItem(LEGACY_LOCAL_USER_KEY);
+    setActiveLocalUser(migrated);
+    return migrated;
+  }
+
   const localUser = {
-    id: getLocalUserId(),
-    email: email || 'local@student.com',
+    id: generateLocalUserId(),
+    email: fallbackEmail,
     created_at: new Date().toISOString(),
     app_metadata: {},
     user_metadata: { full_name: 'Local Student' },
     aud: 'authenticated',
     role: 'authenticated',
   } as User;
-  
-  localStorage.setItem('local-user', JSON.stringify(localUser));
+
+  persistLocalUser(localUser);
+  setActiveLocalUser(localUser);
   return localUser;
 };
 
@@ -100,8 +117,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     if (isDemo || !supabase) {
       setUser(null);
-      localStorage.removeItem('local-user');
-      localStorage.removeItem('local-user-id');
+      localStorage.removeItem(LOCAL_USER_EMAIL_KEY);
+      localStorage.removeItem(LOCAL_USER_ID_KEY);
       // In local mode, recreate a new user on next load
       return;
     }

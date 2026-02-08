@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Subject, Topic, Resource, UserProgress, StudySession, StudyStreak } from './types';
+import { readScopedStorageItem, writeScopedStorageItem } from './storageScope';
 
 export const isDemoMode = (): boolean => {
   try {
@@ -25,7 +26,7 @@ const DEMO_RECENTLY_ACCESSED_KEY = 'demo:recently_accessed';
 
 export const demoStorage = {
   getSubjects: (): Subject[] => {
-    const data = localStorage.getItem(DEMO_SUBJECTS_KEY);
+    const data = readScopedStorageItem(DEMO_SUBJECTS_KEY);
     if (!data) {
       const defaultSubjects: Subject[] = [
         {
@@ -53,14 +54,14 @@ export const demoStorage = {
           created_at: new Date().toISOString(),
         },
       ];
-      localStorage.setItem(DEMO_SUBJECTS_KEY, JSON.stringify(defaultSubjects));
+      writeScopedStorageItem(DEMO_SUBJECTS_KEY, JSON.stringify(defaultSubjects));
       return defaultSubjects;
     }
     return JSON.parse(data);
   },
 
   setSubjects: (subjects: Subject[]) => {
-    localStorage.setItem(DEMO_SUBJECTS_KEY, JSON.stringify(subjects));
+    writeScopedStorageItem(DEMO_SUBJECTS_KEY, JSON.stringify(subjects));
   },
 
   addSubject: (subject: Omit<Subject, 'id' | 'created_at'>) => {
@@ -76,7 +77,7 @@ export const demoStorage = {
   },
 
   getTopics: (): Topic[] => {
-    const data = localStorage.getItem(DEMO_TOPICS_KEY);
+    const data = readScopedStorageItem(DEMO_TOPICS_KEY);
     if (!data) {
       const defaultTopics: Topic[] = [
         {
@@ -101,23 +102,23 @@ export const demoStorage = {
           created_at: new Date().toISOString(),
         },
       ];
-      localStorage.setItem(DEMO_TOPICS_KEY, JSON.stringify(defaultTopics));
+      writeScopedStorageItem(DEMO_TOPICS_KEY, JSON.stringify(defaultTopics));
       return defaultTopics;
     }
     return JSON.parse(data);
   },
 
   setTopics: (topics: Topic[]) => {
-    localStorage.setItem(DEMO_TOPICS_KEY, JSON.stringify(topics));
+    writeScopedStorageItem(DEMO_TOPICS_KEY, JSON.stringify(topics));
   },
 
   getResources: (): Resource[] => {
-    const data = localStorage.getItem(DEMO_RESOURCES_KEY);
+    const data = readScopedStorageItem(DEMO_RESOURCES_KEY);
     return data ? JSON.parse(data) : [];
   },
 
   setResources: (resources: Resource[]) => {
-    localStorage.setItem(DEMO_RESOURCES_KEY, JSON.stringify(resources));
+    writeScopedStorageItem(DEMO_RESOURCES_KEY, JSON.stringify(resources));
   },
 
   addResource: (resource: Omit<Resource, 'id' | 'created_at'>) => {
@@ -133,12 +134,12 @@ export const demoStorage = {
   },
 
   getProgress: (): UserProgress[] => {
-    const data = localStorage.getItem(DEMO_PROGRESS_KEY);
+    const data = readScopedStorageItem(DEMO_PROGRESS_KEY);
     return data ? JSON.parse(data) : [];
   },
 
   setProgress: (progress: UserProgress[]) => {
-    localStorage.setItem(DEMO_PROGRESS_KEY, JSON.stringify(progress));
+    writeScopedStorageItem(DEMO_PROGRESS_KEY, JSON.stringify(progress));
   },
 
   updateProgress: (topicId: string, updates: Partial<UserProgress>) => {
@@ -164,12 +165,12 @@ export const demoStorage = {
   },
 
   getSessions: (): StudySession[] => {
-    const data = localStorage.getItem(DEMO_SESSIONS_KEY);
+    const data = readScopedStorageItem(DEMO_SESSIONS_KEY);
     return data ? JSON.parse(data) : [];
   },
 
   setSessions: (sessions: StudySession[]) => {
-    localStorage.setItem(DEMO_SESSIONS_KEY, JSON.stringify(sessions));
+    writeScopedStorageItem(DEMO_SESSIONS_KEY, JSON.stringify(sessions));
   },
 
   addSession: (session: Omit<StudySession, 'id' | 'created_at'>) => {
@@ -185,7 +186,7 @@ export const demoStorage = {
   },
 
   getStreak: (): StudyStreak | null => {
-    const data = localStorage.getItem(DEMO_STREAK_KEY);
+    const data = readScopedStorageItem(DEMO_STREAK_KEY);
     if (!data) {
       const defaultStreak: StudyStreak = {
         id: 'streak-1',
@@ -195,23 +196,23 @@ export const demoStorage = {
         last_study_date: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString(),
       };
-      localStorage.setItem(DEMO_STREAK_KEY, JSON.stringify(defaultStreak));
+      writeScopedStorageItem(DEMO_STREAK_KEY, JSON.stringify(defaultStreak));
       return defaultStreak;
     }
     return JSON.parse(data);
   },
 
   setStreak: (streak: StudyStreak) => {
-    localStorage.setItem(DEMO_STREAK_KEY, JSON.stringify(streak));
+    writeScopedStorageItem(DEMO_STREAK_KEY, JSON.stringify(streak));
   },
 
   getRecentlyAccessed: (): Array<{ subject_id: string; last_accessed_at: string }> => {
-    const data = localStorage.getItem(DEMO_RECENTLY_ACCESSED_KEY);
+    const data = readScopedStorageItem(DEMO_RECENTLY_ACCESSED_KEY);
     return data ? JSON.parse(data) : [];
   },
 
   setRecentlyAccessed: (items: Array<{ subject_id: string; last_accessed_at: string }>) => {
-    localStorage.setItem(DEMO_RECENTLY_ACCESSED_KEY, JSON.stringify(items));
+    writeScopedStorageItem(DEMO_RECENTLY_ACCESSED_KEY, JSON.stringify(items));
   },
 
   updateRecentlyAccessed: (subjectId: string) => {

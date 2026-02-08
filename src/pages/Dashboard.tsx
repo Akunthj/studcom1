@@ -245,15 +245,13 @@ export const Dashboard: React.FC = () => {
 
       <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 w-full">
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-stretch min-h-[28rem]">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
             {/* Exam Calendar */}
             <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
-            <div className="flex flex-col h-full min-h-0">
-              <HomepageTodo subjects={subjects} />
-            </div>
+            <HomepageTodo subjects={subjects} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 max-w-5xl mx-auto w-full">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-full max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
               <input

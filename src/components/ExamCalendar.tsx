@@ -4,6 +4,7 @@ import { Exam, Subject } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { demoStorage } from '@/lib/demoMode';
 import { supabase } from '@/lib/supabase';
+import { readScopedStorageItem, writeScopedStorageItem } from '@/lib/storageScope';
 
 interface ExamCalendarProps {
   onNavigateToSubject?: (subjectId: string) => void;
@@ -23,7 +24,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
   }, [isDemo]);
 
   const loadExams = () => {
-    const stored = localStorage.getItem('studcom:exams');
+    const stored = readScopedStorageItem('studcom:exams');
     if (stored) {
       setExams(JSON.parse(stored));
     }
@@ -39,7 +40,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
   };
 
   const saveExams = (updatedExams: Exam[]) => {
-    localStorage.setItem('studcom:exams', JSON.stringify(updatedExams));
+    writeScopedStorageItem('studcom:exams', JSON.stringify(updatedExams));
     setExams(updatedExams);
   };
 
@@ -131,7 +132,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
     'July', 'August', 'September', 'October', 'November', 'December'];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Compact Study Suggestion Banner */}
       {nearestExam && (
         <div className="bg-gradient-to-r from-orange-500 to-red-500 dark:from-orange-600 dark:to-red-600 px-4 py-3 flex items-center gap-3 text-white">
@@ -153,9 +154,9 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
       )}
 
       {/* Horizontal Layout: Calendar + Upcoming Tests */}
-      <div className="flex flex-col md:flex-row flex-1">
+      <div className="flex flex-col md:flex-row">
         {/* Left: Mini Calendar */}
-        <div className="flex-1 p-4 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+        <div className="flex-1 p-4 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -199,7 +200,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
         </div>
 
         {/* Right: Upcoming Tests (max 3) */}
-        <div className="w-full md:w-64 p-4 flex flex-col h-full">
+        <div className="w-full md:w-64 p-4">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
             <Clock className="w-4 h-4" />
             Upcoming Tests

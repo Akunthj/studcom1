@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from './storageScope';
+
 export const mergeLegacyTodos = <T extends { id: string }>(
   current: T[],
   legacy: T[]
@@ -18,8 +20,12 @@ export const mergeLegacyTodos = <T extends { id: string }>(
 export const legacyTodoStorageKey = 'studcom:todos';
 export const legacyTodoMigrationKey = 'studcom:todos:migrated';
 
+export const getLegacyTodoStorageKey = () => getScopedStorageKey(legacyTodoStorageKey);
+
+export const getLegacyTodoMigrationKey = () => getScopedStorageKey(legacyTodoMigrationKey);
+
 export const loadLegacyTodos = <T>() => {
-  const stored = localStorage.getItem(legacyTodoStorageKey);
+  const stored = localStorage.getItem(getLegacyTodoStorageKey()) ?? localStorage.getItem(legacyTodoStorageKey);
   if (!stored) return null;
   try {
     return JSON.parse(stored) as T[];
@@ -31,9 +37,10 @@ export const loadLegacyTodos = <T>() => {
 
 export const finalizeLegacyTodoMigration = () => {
   localStorage.removeItem(legacyTodoStorageKey);
-  localStorage.setItem(legacyTodoMigrationKey, 'true');
+  localStorage.removeItem(getLegacyTodoStorageKey());
+  localStorage.setItem(getLegacyTodoMigrationKey(), 'true');
 };
 
 export const markLegacyTodoMigrationChecked = () => {
-  localStorage.setItem(legacyTodoMigrationKey, 'true');
+  localStorage.setItem(getLegacyTodoMigrationKey(), 'true');
 };
