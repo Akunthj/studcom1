@@ -46,13 +46,15 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
   }, [subjects]);
 
   useEffect(() => {
+    const defaultSubjectId = subjects[0]?.id ?? '';
+
     if (!selectedSubjectId && subjects.length > 0) {
-      setSelectedSubjectId(subjects[0].id);
+      setSelectedSubjectId(defaultSubjectId);
       return;
     }
 
     if (selectedSubjectId && !subjects.some((subject) => subject.id === selectedSubjectId)) {
-      setSelectedSubjectId(subjects[0]?.id || '');
+      setSelectedSubjectId(defaultSubjectId);
     }
   }, [subjects, selectedSubjectId]);
 

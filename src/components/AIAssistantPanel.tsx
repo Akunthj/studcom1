@@ -23,10 +23,11 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const minWidth = 280;
   const maxWidth = 480;
+  const defaultWidth = 320;
   const [panelWidth, setPanelWidth] = useState(() => {
     const saved = localStorage.getItem('studcom:ai_panel_width');
-    const parsed = saved ? Number(saved) : 320;
-    if (!Number.isFinite(parsed)) return 320;
+    const parsed = saved ? Number(saved) : defaultWidth;
+    if (!Number.isFinite(parsed)) return defaultWidth;
     return Math.min(maxWidth, Math.max(minWidth, parsed));
   });
 
