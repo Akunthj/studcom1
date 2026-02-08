@@ -8,12 +8,17 @@
 console.log("=== NOTES SERVICE (improved, persistent meta) ===");
 
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
 
 import express from "express";
 import multer from "multer";
 import fs from "fs/promises";
 import path from "path";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env")
+});
 import fetch from "node-fetch";
 import Ajv from "ajv";
 import { v4 as uuidv4 } from "uuid";
@@ -25,12 +30,41 @@ import NOTES_SCHEMA from "./schema.json" with { type: "json" };
 const app = express();
 app.use(express.json());
 
+// Diagnostic request logger: attach a request id and log request/response details
+// This helps identify duplicate/repeated requests and their origin during debugging.
+const uid = (() => { let i = 0; return () => (++i).toString(36) + Date.now().toString(36); })();
+app.use((req, res, next) => {
+  try {
+    req._rid = uid();
+    console.log(`[REQ] ${new Date().toISOString()} | ${req._rid} | ${req.ip || req.connection?.remoteAddress || '-'} | ${req.method} ${req.originalUrl || req.url} | ua:${(req.headers['user-agent']||'')}`);
+    res.on('finish', () => {
+      console.log(`[RES] ${new Date().toISOString()} | ${req._rid} | ${res.statusCode} | ${res.getHeader('content-length')||0}B`);
+    });
+  } catch (e) {
+    console.warn('Request logger error', e);
+  }
+  next();
+});
+
+// Quick favicon handler to avoid browser repeatedly requesting /favicon.ico
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 const upload = multer({ dest: "server/tmp_uploads/" });
 const ajv = new Ajv();
 const validate = ajv.compile(NOTES_SCHEMA);
 
 const API_KEY = process.env.GOOGLE_API_KEY;
-if (!API_KEY) console.warn("⚠️ Missing GOOGLE_API_KEY in env (server/notes)");
+if (!API_KEY) {
+  console.error("❌ GOOGLE_API_KEY not found in server/.env");
+  process.exit(1);
+}
+
+if (!API_KEY.startsWith("AIza")) {
+  console.error("❌ GOOGLE_API_KEY appears malformed");
+  process.exit(1);
+}
+
+console.log("✅ API key loaded:", API_KEY.slice(0, 8) + "...");
 
 const STORAGE_DIR = "server/storage";
 const DEBUG_DIR = "server/tmp_debug";

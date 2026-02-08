@@ -1,0 +1,41 @@
+Search candidates for repeated GET causes
+
+Patterns searched: app.use, app.get, res.redirect, next, setInterval, useEffect, fetch, axios, /favicon.ico, res.send, res.end, res.json
+
+Matches:
+
+1) server/notes/index.js (app.use express.json)
+   line snippet: app.use(express.json());
+   note: middleware order is important — no global request logger present. No redirects found, but top-level middleware may be a location to add diagnostics.
+
+2) server/notes/index.js (error handler)
+   line snippet: app.use((err, req, res, next) => {
+   note: error handler exists; ensure it doesn't call next after sending response. It's correctly checking res.headersSent.
+
+3) server/notes/index.js (several app.get handlers)
+   lines: /api/notes, /api/notes/:id, /api/notes/:id/download, /healthz
+   note: these are legitimate endpoints; repeated calls may originate from client polling (frontend) or missing favicon.
+
+4) src/components/NotesUpload.tsx
+   snippet: pollRef.current = window.setInterval(async () => {
+   note: client-side polling exists and may produce repeated GET /api/notes/<id> calls — this is expected behavior for background job status polling.
+
+5) src/pages/NotesMaker.tsx and src/components/NotesUpload.tsx
+   snippet: fetch(`/api/notes/${jobId}`) and fetch('/api/notes')
+   note: frontend polling of job status and job list; repeated identical GETs may be normal while waiting for job completion.
+
+6) src/components/NotesWidget.tsx and src/pages/NotesCenter.tsx
+   snippet: fetch('/api/notes')
+   note: multiple UI components fetch the same endpoint; if mounted simultaneously they will cause duplicate requests.
+
+7) src/hooks/useStudyTimer.ts and other components
+   snippet: setInterval usage
+   note: other setInterval usages unrelated to notes could still contribute if they call shared endpoints.
+
+8) Multiple fetch spots in frontend (fetch, axios)
+   note: look for duplicate mounting of components or multiple hooks that trigger fetches on mount.
+
+9) No explicit /favicon.ico handler found in server code
+   note: browsers often request /favicon.ico repeatedly when not handled; add a 204 handler to avoid repeated 404s.
+
+Recommendations: instrument server with request logger, add favicon handler, inspect frontend polling logic for multiple components mounting simultaneously, consider debouncing or centralizing polling, and check for dev tooling (live-reload) that may probe endpoints.
