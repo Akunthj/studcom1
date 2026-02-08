@@ -245,7 +245,7 @@ export const Dashboard: React.FC = () => {
 
       <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 w-full">
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative w-full max-w-sm flex-1">
