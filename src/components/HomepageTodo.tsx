@@ -4,7 +4,7 @@ import { Subject } from '@/lib/types';
 import {
   finalizeLegacyTodoMigration,
   getLegacyTodoMigrationKey,
-  getUnscopedSubjectTodoKey,
+  loadSubjectTodos,
   loadLegacyTodos,
   markLegacyTodoMigrationChecked,
   mergeLegacyTodos,
@@ -41,27 +41,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
     const loadedTodos: Record<string, Todo[]> = {};
 
     subjects.forEach((subject) => {
-      const scopedKey = getStorageKey(subject.id);
-      const legacyKey = getUnscopedSubjectTodoKey(subject.id);
-      let saved = localStorage.getItem(scopedKey);
-      if (!saved && scopedKey !== legacyKey) {
-        const legacySaved = localStorage.getItem(legacyKey);
-        if (legacySaved) {
-          localStorage.setItem(scopedKey, legacySaved);
-          localStorage.removeItem(legacyKey);
-          saved = legacySaved;
-        }
-      }
-      if (saved) {
-        try {
-          loadedTodos[subject.id] = JSON.parse(saved);
-        } catch (e) {
-          console.error('Failed to parse todos', e);
-          loadedTodos[subject.id] = [];
-        }
-      } else {
-        loadedTodos[subject.id] = [];
-      }
+      loadedTodos[subject.id] = loadSubjectTodos<Todo>(subject.id, getStorageKey(subject.id)) ?? [];
     });
 
     const legacyMigrated = localStorage.getItem(getLegacyTodoMigrationKey()) === 'true';

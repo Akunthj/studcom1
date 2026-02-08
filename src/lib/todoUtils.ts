@@ -27,6 +27,28 @@ export const getLegacyTodoMigrationKey = () => getScopedStorageKey(legacyTodoMig
 export const getUnscopedSubjectTodoKey = (subjectId: string) =>
   `studcom:todos:subject:${subjectId}`;
 
+export const loadSubjectTodos = <T>(subjectId: string, scopedKey?: string) => {
+  const resolvedScopedKey =
+    scopedKey ?? getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
+  const legacyKey = getUnscopedSubjectTodoKey(subjectId);
+  let saved = localStorage.getItem(resolvedScopedKey);
+  if (!saved && resolvedScopedKey !== legacyKey) {
+    const legacySaved = localStorage.getItem(legacyKey);
+    if (legacySaved) {
+      localStorage.setItem(resolvedScopedKey, legacySaved);
+      localStorage.removeItem(legacyKey);
+      saved = legacySaved;
+    }
+  }
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved) as T[];
+  } catch (error) {
+    console.error('Failed to parse todos', error);
+    return null;
+  }
+};
+
 export const loadLegacyTodos = <T>() => {
   const stored = readScopedStorageItem(legacyTodoStorageKey);
   if (!stored) return null;
@@ -40,10 +62,15 @@ export const loadLegacyTodos = <T>() => {
 
 export const finalizeLegacyTodoMigration = () => {
   const scopedKey = getLegacyTodoStorageKey();
-  if (localStorage.getItem(scopedKey) && localStorage.getItem(legacyTodoStorageKey)) {
-    localStorage.removeItem(legacyTodoStorageKey);
+  const legacyKey = legacyTodoStorageKey;
+  const hasScoped = localStorage.getItem(scopedKey) !== null;
+  const hasLegacy = localStorage.getItem(legacyKey) !== null;
+  if (hasLegacy && (scopedKey === legacyKey || hasScoped)) {
+    localStorage.removeItem(legacyKey);
   }
-  localStorage.removeItem(scopedKey);
+  if (hasScoped && scopedKey !== legacyKey) {
+    localStorage.removeItem(scopedKey);
+  }
   localStorage.setItem(getLegacyTodoMigrationKey(), 'true');
 };
 

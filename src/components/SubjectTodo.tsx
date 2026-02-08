@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Circle, Trash2, Plus } from 'lucide-react';
 import { getScopedStorageKey } from '@/lib/storageScope';
-import { getUnscopedSubjectTodoKey } from '@/lib/todoUtils';
+import { loadSubjectTodos } from '@/lib/todoUtils';
 
 interface Todo {
   id: string;
@@ -25,25 +25,8 @@ export const SubjectTodo: React.FC<SubjectTodoProps> = ({ subjectId }) => {
     }
 
     const key = getScopedStorageKey(`studcom:todos:subject:${subjectId}`);
-    const legacyKey = getUnscopedSubjectTodoKey(subjectId);
-    let saved = localStorage.getItem(key);
-    if (!saved && key !== legacyKey) {
-      const legacySaved = localStorage.getItem(legacyKey);
-      if (legacySaved) {
-        localStorage.setItem(key, legacySaved);
-        localStorage.removeItem(legacyKey);
-        saved = legacySaved;
-      }
-    }
-    if (saved) {
-      try {
-        setTodos(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse subject todos', e);
-      }
-    } else {
-      setTodos([]);
-    }
+    const loadedTodos = loadSubjectTodos<Todo>(subjectId, key);
+    setTodos(loadedTodos ?? []);
   }, [subjectId]);
 
   useEffect(() => {

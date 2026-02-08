@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LEGACY_LOCAL_USER_KEY = 'local-user';
 const LOCAL_USER_EMAIL_KEY = 'local-user-email';
 const LOCAL_USER_ID_KEY = 'local-user-id';
+const DEFAULT_LOCAL_EMAIL = 'local@student.com';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -27,7 +28,7 @@ const generateLocalUserId = () =>
     : `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
 const persistLocalUser = (user: User) => {
-  localStorage.setItem(getLocalUserStorageKey(user.email ?? 'local@student.com'), JSON.stringify(user));
+  localStorage.setItem(getLocalUserStorageKey(user.email ?? DEFAULT_LOCAL_EMAIL), JSON.stringify(user));
 };
 
 const setActiveLocalUser = (user: User) => {
@@ -37,7 +38,9 @@ const setActiveLocalUser = (user: User) => {
 };
 
 const getLocalUser = (email?: string): User => {
-  const fallbackEmail = normalizeEmail(email || localStorage.getItem(LOCAL_USER_EMAIL_KEY) || 'local@student.com');
+  const fallbackEmail = normalizeEmail(
+    email || localStorage.getItem(LOCAL_USER_EMAIL_KEY) || DEFAULT_LOCAL_EMAIL
+  );
   const stored = localStorage.getItem(getLocalUserStorageKey(fallbackEmail));
   if (stored) {
     const parsed = JSON.parse(stored);

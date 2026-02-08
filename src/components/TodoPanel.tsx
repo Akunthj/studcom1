@@ -5,8 +5,8 @@ import { useSubject } from '@/contexts/SubjectContext';
 import {
   finalizeLegacyTodoMigration,
   getLegacyTodoMigrationKey,
-  getUnscopedSubjectTodoKey,
   loadLegacyTodos,
+  loadSubjectTodos,
   markLegacyTodoMigrationChecked,
   mergeLegacyTodos,
 } from '@/lib/todoUtils';
@@ -49,24 +49,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
 
     hasLoadedTodos.current = false;
     const subjectKey = getStorageKey(activeSubjectId);
-    const legacySubjectKey = getUnscopedSubjectTodoKey(activeSubjectId);
-    let subjectTodos: Todo[] = [];
-    let savedTodos = localStorage.getItem(subjectKey);
-    if (!savedTodos && subjectKey !== legacySubjectKey) {
-      const legacyTodos = localStorage.getItem(legacySubjectKey);
-      if (legacyTodos) {
-        localStorage.setItem(subjectKey, legacyTodos);
-        localStorage.removeItem(legacySubjectKey);
-        savedTodos = legacyTodos;
-      }
-    }
-    if (savedTodos) {
-      try {
-        subjectTodos = JSON.parse(savedTodos);
-      } catch (e) {
-        console.error('Failed to parse todos', e);
-      }
-    }
+    let subjectTodos = loadSubjectTodos<Todo>(activeSubjectId, subjectKey) ?? [];
 
     const legacyMigrated = localStorage.getItem(getLegacyTodoMigrationKey()) === 'true';
     const legacyTodos = legacyMigrated ? null : loadLegacyTodos<Todo>();
