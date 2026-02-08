@@ -95,7 +95,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
 
     // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="w-7 h-7" />);
+      days.push(<div key={`empty-${i}`} className="w-6 h-6" />);
     }
 
     // Days of the month
@@ -109,7 +109,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
         <button
           key={day}
           onClick={() => setSelectedDate(date)}
-          className={`w-7 h-7 rounded text-[11px] transition-all flex flex-col items-center justify-center ${
+          className={`w-6 h-6 rounded text-[10px] transition-all flex flex-col items-center justify-center ${
             isToday ? 'bg-blue-100 dark:bg-blue-900/40 font-bold text-blue-600 dark:text-blue-400' : ''
           } ${
             isSelected ? 'ring-1 ring-blue-500' : ''
@@ -156,7 +156,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
       {/* Horizontal Layout: Calendar + Upcoming Tests */}
       <div className="flex flex-col md:flex-row">
         {/* Left: Mini Calendar */}
-        <div className="flex-1 p-4 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
+        <div className="flex-1 p-3 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -183,7 +183,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
           {/* Compact Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-              <div key={i} className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-1">
+              <div key={i} className="text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-0.5">
                 {day}
               </div>
             ))}
@@ -192,7 +192,7 @@ export const ExamCalendar: React.FC<ExamCalendarProps> = ({ onNavigateToSubject 
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-xs font-medium"
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition text-xs font-medium"
           >
             <Plus className="w-3 h-3" />
             Add Test
