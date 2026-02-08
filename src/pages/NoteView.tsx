@@ -6,26 +6,36 @@ export default function NoteView() {
   const [note, setNote] = useState<any | null>(null);
   const [status, setStatus] = useState("loading");
 
+  // Fetch note exactly once per id. Cancellation pattern prevents state updates after unmount.
+  // This fixes repeated 304 responses that occurred when component mounted/unmounted frequently.
   useEffect(() => {
-    if (id) load();
-  }, [id]);
+    let cancelled = false;
 
-  async function load() {
-    setStatus("loading");
-    try {
-      const res = await fetch(`/api/notes/${id}`);
-      const json = await res.json();
-      if (res.ok && json.status === "done") {
-        setNote(json.notes);
-        setStatus("done");
-      } else {
-        setStatus(json.status || "error");
+    async function loadNote() {
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/notes/${id}`, { cache: 'no-cache' });
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          setNote(json.notes);
+          setStatus(json.status === "done" ? "done" : json.status || "error");
+        } else if (!cancelled) {
+          setStatus("error");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          setStatus("error");
+        }
       }
-    } catch (err) {
-      console.error(err);
-      setStatus("error");
     }
-  }
+
+    loadNote(); // Fetch once per id change, no polling
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   if (!id) return <div>No job selected</div>;
   if (status === "loading") return <div>Loading…</div>;
