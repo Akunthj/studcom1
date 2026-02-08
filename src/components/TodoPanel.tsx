@@ -111,20 +111,20 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
       createdAt: Date.now(),
     };
 
-    setTodos((prev) => [newTodo, ...prev]);
+    setTodos([newTodo, ...todos]);
     setInputText('');
   };
 
   const toggleTodo = (id: string) => {
-    setTodos((prev) =>
-      prev.map((todo) =>
+    setTodos(
+      todos.map((todo) =>
         todo.id === id ? { ...todo, completed: !todo.completed } : todo
       )
     );
   };
 
   const deleteTodo = (id: string) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
+    setTodos(todos.filter((todo) => todo.id !== id));
   };
 
   const startEdit = (todo: Todo) => {
@@ -135,8 +135,8 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   const saveEdit = () => {
     if (!editText.trim() || !editingId) return;
 
-    setTodos((prev) =>
-      prev.map((todo) =>
+    setTodos(
+      todos.map((todo) =>
         todo.id === editingId ? { ...todo, text: editText.trim() } : todo
       )
     );

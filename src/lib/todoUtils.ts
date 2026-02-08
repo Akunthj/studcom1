@@ -1,4 +1,4 @@
-import { getScopedStorageKey } from './storageScope';
+import { getScopedStorageKey, readScopedStorageItem } from './storageScope';
 
 export const mergeLegacyTodos = <T extends { id: string }>(
   current: T[],
@@ -28,7 +28,7 @@ export const getUnscopedSubjectTodoKey = (subjectId: string) =>
   `studcom:todos:subject:${subjectId}`;
 
 export const loadLegacyTodos = <T>() => {
-  const stored = localStorage.getItem(getLegacyTodoStorageKey()) ?? localStorage.getItem(legacyTodoStorageKey);
+  const stored = readScopedStorageItem(legacyTodoStorageKey);
   if (!stored) return null;
   try {
     return JSON.parse(stored) as T[];
