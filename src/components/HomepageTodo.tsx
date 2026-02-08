@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Circle, Trash2, Plus } from 'lucide-react';
 import { Subject } from '@/lib/types';
+import {
+  finalizeLegacyTodoMigration,
+  legacyTodoMigrationKey,
+  legacyTodoStorageKey,
+  loadLegacyTodos,
+  markLegacyTodoMigrationChecked,
+  mergeLegacyTodos,
+} from '@/lib/todoUtils';
 
 interface Todo {
   id: string;
@@ -19,6 +27,8 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
   const [subjectTodos, setSubjectTodos] = useState<Record<string, Todo[]>>({});
   const [newTodoText, setNewTodoText] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
+  const defaultSubjectId = subjects[0]?.id ?? '';
+  const migrationTargetId = selectedSubjectId || defaultSubjectId || null;
 
   useEffect(() => {
     if (subjects.length === 0) {
@@ -42,12 +52,32 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
       }
     });
 
+    const legacyMigrated = localStorage.getItem(legacyTodoMigrationKey) === 'true';
+    const legacyTodosRaw = legacyMigrated
+      ? null
+      : localStorage.getItem(legacyTodoStorageKey);
+    const legacyTodos = legacyTodosRaw ? loadLegacyTodos<Todo>() : null;
+    if (legacyTodos && migrationTargetId && !legacyMigrated) {
+      const mergedTodos = mergeLegacyTodos(
+        loadedTodos[migrationTargetId] || [],
+        legacyTodos
+      );
+      if (mergedTodos.length > 0) {
+        loadedTodos[migrationTargetId] = mergedTodos;
+        localStorage.setItem(
+          getStorageKey(migrationTargetId),
+          JSON.stringify(mergedTodos)
+        );
+      }
+      finalizeLegacyTodoMigration();
+    } else if (!legacyTodosRaw && !legacyMigrated) {
+      markLegacyTodoMigrationChecked();
+    }
+
     setSubjectTodos(loadedTodos);
-  }, [subjects]);
+  }, [subjects, migrationTargetId]);
 
   useEffect(() => {
-    const defaultSubjectId = subjects[0]?.id ?? '';
-
     if (!selectedSubjectId && subjects.length > 0) {
       setSelectedSubjectId(defaultSubjectId);
       return;
@@ -56,7 +86,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
     if (selectedSubjectId && !subjects.some((subject) => subject.id === selectedSubjectId)) {
       setSelectedSubjectId(defaultSubjectId);
     }
-  }, [subjects, selectedSubjectId]);
+  }, [subjects, selectedSubjectId, defaultSubjectId]);
 
   useEffect(() => {
     Object.entries(subjectTodos).forEach(([subjectId, todos]) => {

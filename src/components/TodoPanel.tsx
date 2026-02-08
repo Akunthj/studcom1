@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Check, Circle, Filter } from 'lucide-react';
+import { useSubject } from '@/contexts/SubjectContext';
+import {
+  finalizeLegacyTodoMigration,
+  legacyTodoMigrationKey,
+  legacyTodoStorageKey,
+  loadLegacyTodos,
+  markLegacyTodoMigrationChecked,
+  mergeLegacyTodos,
+} from '@/lib/todoUtils';
 
 interface Todo {
   id: string;
@@ -14,31 +23,62 @@ interface TodoPanelProps {
   onClose: () => void;
 }
 
+const getStorageKey = (subjectId: string) => `studcom:todos:subject:${subjectId}`;
 export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
+  const { currentSubjectId } = useSubject();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [inputText, setInputText] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
-  // Load todos from localStorage on mount
+  // Load todos from localStorage on subject change
   useEffect(() => {
-    const savedTodos = localStorage.getItem('studcom:todos');
+    if (!currentSubjectId) {
+      setTodos([]);
+      return;
+    }
+
+    const subjectKey = getStorageKey(currentSubjectId);
+    let subjectTodos: Todo[] = [];
+    const savedTodos = localStorage.getItem(subjectKey);
     if (savedTodos) {
       try {
-        setTodos(JSON.parse(savedTodos));
+        subjectTodos = JSON.parse(savedTodos);
       } catch (e) {
         console.error('Failed to parse todos', e);
       }
     }
-  }, []);
+
+    const legacyMigrated = localStorage.getItem(legacyTodoMigrationKey) === 'true';
+    const legacyTodosRaw = legacyMigrated
+      ? null
+      : localStorage.getItem(legacyTodoStorageKey);
+    const legacyTodos = legacyTodosRaw ? loadLegacyTodos<Todo>() : null;
+    if (legacyTodos && !legacyMigrated) {
+      const mergedTodos = mergeLegacyTodos(subjectTodos, legacyTodos);
+      setTodos(mergedTodos);
+      localStorage.setItem(subjectKey, JSON.stringify(mergedTodos));
+      finalizeLegacyTodoMigration();
+      return;
+    }
+
+    if (!legacyTodosRaw && !legacyMigrated) {
+      markLegacyTodoMigrationChecked();
+    }
+
+    setTodos(subjectTodos);
+  }, [currentSubjectId]);
 
   // Save todos to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('studcom:todos', JSON.stringify(todos));
+    if (!currentSubjectId) {
+      return;
+    }
+    localStorage.setItem(getStorageKey(currentSubjectId), JSON.stringify(todos));
     // Stub for syncing to server when backend is ready
     syncTodosToServer(todos);
-  }, [todos]);
+  }, [todos, currentSubjectId]);
 
   const syncTodosToServer = async (todos: Todo[]) => {
     // TODO: Implement server sync when backend is ready
@@ -46,7 +86,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   };
 
   const addTodo = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !currentSubjectId) return;
 
     const newTodo: Todo = {
       id: Date.now().toString(),

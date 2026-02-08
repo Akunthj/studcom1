@@ -14,15 +14,35 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Local-first user for when Supabase is not available
-const getLocalUser = (): User => {
+const getLocalUserId = (forceNew = false) => {
+  if (forceNew) {
+    localStorage.removeItem('local-user-id');
+  }
+  const storedId = localStorage.getItem('local-user-id');
+  if (storedId) return storedId;
+  const newId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? `local-user-${crypto.randomUUID()}`
+      : `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  localStorage.setItem('local-user-id', newId);
+  return newId;
+};
+
+const getLocalUser = (email?: string): User => {
   const stored = localStorage.getItem('local-user');
   if (stored) {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    if (email && parsed.email !== email) {
+      const updated = { ...parsed, email, id: getLocalUserId(true) };
+      localStorage.setItem('local-user', JSON.stringify(updated));
+      return updated;
+    }
+    return parsed;
   }
   
   const localUser = {
-    id: 'local-user-' + Date.now(),
-    email: 'local@student.com',
+    id: getLocalUserId(),
+    email: email || 'local@student.com',
     created_at: new Date().toISOString(),
     app_metadata: {},
     user_metadata: { full_name: 'Local Student' },
@@ -61,7 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string) => {
     if (isDemo || !supabase) {
-      throw new Error('Authentication not available in local-first mode');
+      setUser(getLocalUser(email));
+      return;
     }
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
@@ -69,7 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     if (isDemo || !supabase) {
-      throw new Error('Authentication not available in local-first mode');
+      setUser(getLocalUser(email));
+      return;
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -79,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDemo || !supabase) {
       setUser(null);
       localStorage.removeItem('local-user');
+      localStorage.removeItem('local-user-id');
       // In local mode, recreate a new user on next load
       return;
     }
