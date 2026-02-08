@@ -6,6 +6,7 @@ import { Subject, SubjectWithProgress } from '@/lib/types';
 import { Header } from '@/components/Header';
 import { AddItemModal } from '@/components/AddItemModal';
 import { ExamCalendar } from '@/components/ExamCalendar';
+import NotesWidget from '@/components/NotesWidget';
 import { Plus, Minimize2, Maximize2, Search, BookMarked, MessageCircle, BookOpen, X } from 'lucide-react';
 import { demoStorage, isDemoMode } from '@/lib/demoMode';
 
@@ -243,11 +244,13 @@ export const Dashboard: React.FC = () => {
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
-        <div className="flex flex-col gap-5">
-          {/* Exam Calendar */}
-          <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Main content */}
+          <div className="flex-1 flex flex-col gap-5">
+            {/* Exam Calendar */}
+            <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
 
-          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
               <input
@@ -422,6 +425,11 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
+          
+          {/* Sidebar with Notes Widget */}
+          <aside className="w-full lg:w-80 flex flex-col gap-5">
+            <NotesWidget />
+          </aside>
         </div>
       </div>
 
