@@ -191,6 +191,43 @@ ${text}
 }
 
 /* -----------------------
+   Fallback: simple summary generation (no structured JSON required)
+   ----------------------- */
+async function callGeminiSimple(promptText) {
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: promptText }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.0,
+      maxOutputTokens: 1200
+    }
+  };
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error("Gemini error: " + JSON.stringify(data).slice(0, 500));
+    }
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    if (!text) throw new Error("No text in Gemini response");
+    return text;
+  } catch (e) {
+    console.error("callGeminiSimple error:", e);
+    throw e;
+  }
+}
+
+/* -----------------------
    Simple fallback filler for missing keys (so schema tends to pass)
    ----------------------- */
 function fillDefaults(obj) {
@@ -230,7 +267,7 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
         await fs.unlink(f.path).catch(() => {});
 
         // larger chunks: fewer API calls, more context, less quota waste
-        const chunks = chunkText(text, { maxChars: 80000, overlapChars: 2000 });
+        const chunks = chunkText(text, { maxChars: 150000, overlapChars: 2000 });
         console.log(`job=${jobId} split into ${chunks.length} chunk(s)`);
 
         const chunkOutputs = [];
@@ -304,11 +341,28 @@ app.post("/api/notes", upload.single("file"), async (req, res) => {
         } // end for chunks
 
         if (chunkOutputs.length === 0) {
-          const em = { jobId, status: "error", createdAt: Date.now(), error: "No valid chunk outputs (model failed or quota)" };
-          JOBS[jobId] = em;
-          await writeJobMeta(jobId, em);
-          console.error("job", jobId, "failed: No valid chunk outputs");
-          return;
+          // Fallback: try simple summary from full text
+          console.log("[FALLBACK] No chunk outputs; attempting simple summary...");
+          try {
+            const summaryPrompt = `Summarize this text in JSON with keys: title (short title), summary (2-3 sentences), tl_dr (one sentence). Return ONLY valid JSON, no markdown or extra text.\n\nText:\n---\n${text.slice(0, 8000)}\n---`;
+            const summaryText = await callGeminiSimple(summaryPrompt);
+            const parsed = typeof summaryText === "string" ? JSON.parse(summaryText) : summaryText;
+            const merged = fillDefaults(parsed);
+            const outPath = path.join(STORAGE_DIR, `${jobId}.json`);
+            await fs.writeFile(outPath, JSON.stringify(merged, null, 2), "utf8");
+            const doneMeta = { jobId, status: "done", createdAt: Date.now(), resultPath: outPath };
+            JOBS[jobId] = doneMeta;
+            await writeJobMeta(jobId, doneMeta);
+            console.log("Job succeeded via fallback summary:", jobId);
+            return;
+          } catch (fallbackErr) {
+            console.error("Fallback summary failed:", fallbackErr);
+            const em = { jobId, status: "error", createdAt: Date.now(), error: "No valid chunk outputs and fallback failed: " + String(fallbackErr).slice(0, 200) };
+            JOBS[jobId] = em;
+            await writeJobMeta(jobId, em);
+            console.error("job", jobId, "failed: No valid chunk outputs and fallback failed");
+            return;
+          }
         }
 
         // merge, persist result
