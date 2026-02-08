@@ -435,6 +435,26 @@ app.get("/api/notes", async (req, res) => {
 });
 
 /* -----------------------
+   Health check endpoint
+   ----------------------- */
+app.get("/healthz", (req, res) => {
+  return res.json({ status: "ok", ts: Date.now() });
+});
+
+/* -----------------------
+   Global error handler
+   ----------------------- */
+app.use((err, req, res, next) => {
+  console.error("[ERROR] Unhandled error:", err && (err.stack || err.message || err));
+  try {
+    if (res.headersSent) return next(err);
+    return res.status(500).json({ error: "internal_server_error", details: String(err && (err.message || err)).slice(0, 500) });
+  } catch (e) {
+    return res.status(500).json({ error: "internal_server_error" });
+  }
+});
+
+/* -----------------------
    Start server
    ----------------------- */
 const PORT = process.env.PORT || 4000;

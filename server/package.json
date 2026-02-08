@@ -5,6 +5,7 @@
   "main": "notes/index.js",
   "scripts": {
     "start": "node notes/index.js",
+    "start-no-nodemon": "node notes/index.js",
     "dev": "nodemon notes/index.js"
   },
   "nodemonConfig": {

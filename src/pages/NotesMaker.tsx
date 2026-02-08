@@ -1,5 +1,54 @@
 import { useState, useRef } from "react";
 
+/**
+ * Safe JSON parse from fetch response (handles empty body, JSON parse errors)
+ */
+async function safeFetchJson(resp) {
+  if (!resp) return { status: "error", error: "no_response" };
+  try {
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      const parsed = txt ? (() => { try { return JSON.parse(txt); } catch { return { error: txt }; } })() : {};
+      return { status: "error", error: parsed.error || `HTTP_${resp.status}`, details: parsed.details };
+    }
+    const raw = await resp.text().catch(() => "");
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn("[safeFetchJson] Error:", e);
+    return { status: "error", error: "parse_failed" };
+  }
+}
+
+/**
+ * Poll job status with timeout (5 minutes max)
+ */
+async function pollJobStatus(jobId, onUpdate) {
+  const start = Date.now();
+  const maxDuration = 1000 * 60 * 5; // 5 minutes
+  const pollInterval = 2000; // 2 seconds
+
+  while (true) {
+    if (Date.now() - start > maxDuration) {
+      return { status: "error", error: "timeout", details: "Processing exceeded 5 minutes" };
+    }
+
+    try {
+      const resp = await fetch(`/api/notes/${jobId}`);
+      const data = await safeFetchJson(resp);
+      onUpdate?.(data);
+
+      if (data.status === "done" || data.status === "error") {
+        return data;
+      }
+    } catch (e) {
+      console.warn("[pollJobStatus] Network error:", e);
+      // continue polling on transient errors
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+  }
+}
 
 export default function NotesMaker() {
   const [notes, setNotes] = useState<any | null>(null);
@@ -15,74 +64,50 @@ export default function NotesMaker() {
     setStatus("uploading");
     setError(null);
 
-    const fd = new FormData();
-    fd.append("file", file);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
 
-    const res = await fetch("/api/notes", {
-      method: "POST",
-      body: fd,
-    });
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        body: fd,
+      });
 
-    const json = await res.json();
+      const json = await safeFetchJson(res);
 
-    if (!res.ok) {
-      setError(json.error || "Upload failed");
-      setStatus("error");
-      return;
-    }
+      if (json.status === "error" || !json.jobId) {
+        setError(json.error || json.details || "Upload failed");
+        setStatus("error");
+        return;
+      }
 
-    setJobId(json.jobId);
-    setStatus("processing");
+      setJobId(json.jobId);
+      setStatus("processing");
 
-    poll(json.jobId);
-  };
+      // Use async polling
+      const result = await pollJobStatus(json.jobId, (update) => {
+        // onUpdate callback for real-time status
+        if (update.status !== "done" && update.status !== "error") {
+          setStatus(`processing: ${update.message || "..."}`);        }
+      });
 
-  const poll = (id: string) => {
-    const maxAttempts = 150; // 5 minutes at 2-second intervals
-    let attempts = 0;
-
-    const interval = setInterval(async () => {
-      attempts++;
-
-      try {
-        const res = await fetch(`/api/notes/${id}`);
-        const json = await res.json();
-
-        if (!res.ok) {
-          clearInterval(interval);
-          setError(json.error || "Failed to check job status");
-          setStatus("error");
-          return;
-        }
-
-        if (json.status === "done") {
-          clearInterval(interval);
-          setNotes(json.notes);
-          setStatus("done");
-          return;
-        }
-
-        if (json.status === "error") {
-          clearInterval(interval);
-          // Surface the backend error message
-          setError(json.error || "Processing failed");
-          setStatus("error");
-          return;
-        }
-
-        // Check timeout
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          setError("Processing timeout (5 minutes exceeded)");
-          setStatus("error");
-          return;
-        }
-      } catch (err) {
-        clearInterval(interval);
-        setError("Network error: " + String(err).slice(0, 100));
+      if (result.status === "done") {
+        setNotes(result.notes);
+        setStatus("done");
+      } else {
+        setError(result.error || result.details || "Processing failed");
         setStatus("error");
       }
-    }, 2000);
+    } catch (err) {
+      setError("Unexpected error: " + String(err).slice(0, 100));
+      setStatus("error");
+    }
+  };
+
+  // Legacy polling function (now replaced by async pollJobStatus above)
+  // Keeping as backup but not used in uploadFile
+  const poll = (id: string) => {
+    // Deprecated: use pollJobStatus in uploadFile instead
   };
 
   return (
