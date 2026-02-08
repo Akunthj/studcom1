@@ -20,11 +20,12 @@ export const readScopedStorageItem = (key: string) => {
   if (legacy === null) {
     return null;
   }
-  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  let legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
   if (!legacyOwner) {
     localStorage.setItem(LEGACY_OWNER_KEY, userId);
+    legacyOwner = userId;
   }
-  if (!legacyOwner || legacyOwner === userId) {
+  if (legacyOwner === userId) {
     localStorage.setItem(scopedKey, legacy);
     localStorage.removeItem(key);
     return legacy;
