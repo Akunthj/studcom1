@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, Plus, Trash2, Check, Circle, Filter } from 'lucide-react';
 import { useSubject } from '@/contexts/SubjectContext';
@@ -30,10 +30,10 @@ const getStorageKey = (subjectId: string) =>
 export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   const { currentSubjectId } = useSubject();
   const [searchParams] = useSearchParams();
-  const subjectParam = searchParams.get('subject');
-  const activeSubjectId = currentSubjectId ?? subjectParam;
+  const subjectIdFromUrl = searchParams.get('subject');
+  const activeSubjectId = currentSubjectId ?? subjectIdFromUrl;
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [hasLoadedForSubject, setHasLoadedForSubject] = useState(false);
+  const hasLoadedForSubject = useRef(false);
   const [inputText, setInputText] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,11 +43,11 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   useEffect(() => {
     if (!activeSubjectId) {
       setTodos([]);
-      setHasLoadedForSubject(false);
+      hasLoadedForSubject.current = false;
       return;
     }
 
-    setHasLoadedForSubject(false);
+    hasLoadedForSubject.current = false;
     const subjectKey = getStorageKey(activeSubjectId);
     const legacySubjectKey = getUnscopedSubjectTodoKey(activeSubjectId);
     let subjectTodos: Todo[] = [];
@@ -83,18 +83,18 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     }
 
     setTodos(subjectTodos);
-    setHasLoadedForSubject(true);
+    hasLoadedForSubject.current = true;
   }, [activeSubjectId]);
 
   // Save todos to localStorage whenever they change
   useEffect(() => {
-    if (!activeSubjectId || !hasLoadedForSubject) {
+    if (!activeSubjectId || !hasLoadedForSubject.current) {
       return;
     }
     localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(todos));
     // Stub for syncing to server when backend is ready
     syncTodosToServer(todos);
-  }, [todos, activeSubjectId, hasLoadedForSubject]);
+  }, [todos, activeSubjectId]);
 
   const syncTodosToServer = async (todos: Todo[]) => {
     // TODO: Implement server sync when backend is ready

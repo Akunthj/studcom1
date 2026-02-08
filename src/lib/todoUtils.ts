@@ -39,8 +39,11 @@ export const loadLegacyTodos = <T>() => {
 };
 
 export const finalizeLegacyTodoMigration = () => {
-  localStorage.removeItem(legacyTodoStorageKey);
-  localStorage.removeItem(getLegacyTodoStorageKey());
+  const scopedKey = getLegacyTodoStorageKey();
+  if (localStorage.getItem(scopedKey)) {
+    localStorage.removeItem(legacyTodoStorageKey);
+  }
+  localStorage.removeItem(scopedKey);
   localStorage.setItem(getLegacyTodoMigrationKey(), 'true');
 };
 
