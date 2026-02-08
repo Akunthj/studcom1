@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Sparkles, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -53,15 +53,15 @@ export const Register: React.FC = () => {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <div className="flex justify-center mb-8">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3">
-              <BookOpen className="w-8 h-8 text-white" />
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-3">
+              <Sparkles className="w-8 h-8 text-white" />
             </div>
           </div>
 
           <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
             Create Account
           </h1>
-          <p className="text-center text-gray-600 mb-8">Join StudyCompanion today</p>
+          <p className="text-center text-gray-600 mb-8">Join Akira today</p>
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">

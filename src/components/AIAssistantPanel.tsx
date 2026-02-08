@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Topic, Subject } from '@/lib/types';
 import { X, Lightbulb, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AIChat } from './AIChat';
@@ -21,6 +21,18 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 }) => {
   const [mode, setMode] = useState<AIMode>('ai_doubt');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const minWidth = 280;
+  const maxWidth = 480;
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('studcom:ai_panel_width');
+    const parsed = saved ? Number(saved) : 320;
+    if (!Number.isFinite(parsed)) return 320;
+    return Math.min(maxWidth, Math.max(minWidth, parsed));
+  });
+
+  useEffect(() => {
+    localStorage.setItem('studcom:ai_panel_width', panelWidth.toString());
+  }, [panelWidth]);
 
   const modes = [
     {
@@ -57,7 +69,10 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   };
 
   return (
-    <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
+    <div
+      className="bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full transition-colors duration-200 hover:bg-gradient-to-b hover:from-white hover:to-blue-50/60 dark:hover:from-gray-800 dark:hover:to-blue-900/10"
+      style={{ width: panelWidth }}
+    >
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -74,7 +89,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         <div className="relative">
           <button
             onClick={() => setModeMenuOpen(!modeMenuOpen)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg transition hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20"
           >
             <div className="flex items-center gap-2 flex-1 text-left">
               <div className={`p-1.5 rounded ${
@@ -146,6 +161,21 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
               </div>
             </>
           )}
+        </div>
+
+        <div className="mt-3 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="uppercase tracking-wide">Width</span>
+          <input
+            type="range"
+            min={minWidth}
+            max={maxWidth}
+            step={20}
+            value={panelWidth}
+            onChange={(e) => setPanelWidth(Number(e.target.value))}
+            className="flex-1 accent-blue-600 dark:accent-blue-400"
+            aria-label="Adjust AI assistant width"
+          />
+          <span className="w-12 text-right text-gray-600 dark:text-gray-300">{panelWidth}px</span>
         </div>
       </div>
 
