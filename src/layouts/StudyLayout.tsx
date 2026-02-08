@@ -6,7 +6,7 @@ import { Subject, Topic } from '@/lib/types';
 import { Sidebar, ResourceType } from '@/components/Sidebar';
 import { AIAssistantPanel } from '@/components/AIAssistantPanel';
 import { TopicContent } from '@/components/TopicContent';
-import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo, Home, ChevronRight } from 'lucide-react';
+import { BookOpen, Bot, Sun, Moon, User, Settings, LogOut, Menu, X, ListTodo, Home, ChevronRight, FileText } from 'lucide-react';
 import { TodoPanel } from '@/components/TodoPanel';
 
 interface StudyLayoutProps {
@@ -119,6 +119,16 @@ export const StudyLayout: React.FC<StudyLayoutProps> = ({
             <Bot className="w-5 h-5" />
             <span>AI Assistant</span>
           </button>
+
+          {selectedSubject && (
+            <button
+              onClick={() => navigate('/notes')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition font-medium bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600"
+            >
+              <FileText className="w-5 h-5" />
+              <span>Make Notes</span>
+            </button>
+          )}
 
           <button
             onClick={() => setRightPanel(rightPanel === 'todo' ? null : 'todo')}
