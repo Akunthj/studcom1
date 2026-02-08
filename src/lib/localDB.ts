@@ -71,13 +71,34 @@ const DB_NAME = 'studcom';
 const DB_VERSION = 1;
 
 let dbInstance: IDBPDatabase<StudcomDB> | null = null;
+let currentDbName: string | null = null;
+const LEGACY_DB_OWNER_KEY = 'studcom:legacy-db-owner';
+
+const getDbName = () => {
+  const userId = localStorage.getItem('local-user-id');
+  if (!userId) {
+    return DB_NAME;
+  }
+  const legacyOwner = localStorage.getItem(LEGACY_DB_OWNER_KEY);
+  if (!legacyOwner) {
+    localStorage.setItem(LEGACY_DB_OWNER_KEY, userId);
+    return DB_NAME;
+  }
+  return legacyOwner === userId ? DB_NAME : `${DB_NAME}:${userId}`;
+};
 
 export async function getDB(): Promise<IDBPDatabase<StudcomDB>> {
-  if (dbInstance) {
+  const dbName = getDbName();
+  if (dbInstance && currentDbName === dbName) {
     return dbInstance;
   }
 
-  dbInstance = await openDB<StudcomDB>(DB_NAME, DB_VERSION, {
+  if (dbInstance && currentDbName !== dbName) {
+    dbInstance.close();
+  }
+
+  currentDbName = dbName;
+  dbInstance = await openDB<StudcomDB>(dbName, DB_VERSION, {
     upgrade(db) {
       // Files store
       if (!db.objectStoreNames.contains('files')) {

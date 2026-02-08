@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Sparkles, User, Settings, LogOut, ChevronDown } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -17,24 +17,24 @@ export const Header: React.FC = () => {
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
         <button
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-3 hover:opacity-80 transition"
         >
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 rounded-lg p-2">
-            <BookOpen className="w-6 h-6 text-white" />
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-lg p-2 shadow-sm">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">StudyCompanion</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Akira</h1>
         </button>
 
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition shadow-sm"
           >
             <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 {userInitial}
               </span>
             </div>

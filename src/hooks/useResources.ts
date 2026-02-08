@@ -1,6 +1,7 @@
 // src/hooks/useResources.ts
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { readScopedStorageItem, writeScopedStorageItem } from '@/lib/storageScope';
 
 const DEMO_KEY = 'studcom:resources';
 
@@ -19,14 +20,14 @@ export type Resource = {
 
 function readDemoAll(): Record<string, Resource[]> {
   try {
-    return JSON.parse(localStorage.getItem(DEMO_KEY) || '{}');
+    return JSON.parse(readScopedStorageItem(DEMO_KEY) || '{}');
   } catch {
     return {};
   }
 }
 
 function writeDemoAll(all: Record<string, Resource[]>) {
-  localStorage.setItem(DEMO_KEY, JSON.stringify(all));
+  writeScopedStorageItem(DEMO_KEY, JSON.stringify(all));
 }
 
 export function useResources(subjectId?: string) {

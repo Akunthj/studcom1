@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Sparkles, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -31,13 +31,13 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <div className="flex justify-center mb-8">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3">
-              <BookOpen className="w-8 h-8 text-white" />
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-3">
+              <Sparkles className="w-8 h-8 text-white" />
             </div>
           </div>
 
           <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
-            StudyCompanion
+            Akira
           </h1>
           <p className="text-center text-gray-600 mb-8">Welcome back to your study hub</p>
 

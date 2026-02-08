@@ -6,8 +6,9 @@ import { Subject, SubjectWithProgress } from '@/lib/types';
 import { Header } from '@/components/Header';
 import { AddItemModal } from '@/components/AddItemModal';
 import { ExamCalendar } from '@/components/ExamCalendar';
+import { HomepageTodo } from '@/components/HomepageTodo';
 import { Plus, Minimize2, Maximize2, Search, BookMarked, BookOpen, X } from 'lucide-react';
-import { demoStorage, isDemoMode } from '@/lib/demoMode';
+import { demoStorage } from '@/lib/demoMode';
 
 export const Dashboard: React.FC = () => {
   const { user, loading: authLoading, isDemo } = useAuth();
@@ -245,44 +246,36 @@ export const Dashboard: React.FC = () => {
       <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 w-full">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
-            {/* Exam Calendar */}
-            <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group
-                  ${compactView ? 'p-4' : 'p-5'}
-                `}
-              >
-                <div
-                  className={`rounded-lg flex items-center justify-center mb-3 bg-blue-50 dark:bg-blue-900/30 group-hover:scale-110 transition-transform duration-200
-                    ${compactView ? 'w-10 h-10' : 'w-12 h-12'}
-                  `}
-                >
-                  <Plus className={`text-blue-600 dark:text-blue-400 ${compactView ? 'w-5 h-5' : 'w-6 h-6'}`} />
+            <div className="flex flex-col gap-3 self-start">
+              {/* Exam Calendar */}
+              <ExamCalendar onNavigateToSubject={(subjectId) => handleSubjectClick({ id: subjectId } as Subject)} />
+              <div className="flex flex-wrap items-center gap-3 mt-3">
+                <div className="relative w-full max-w-sm flex-1">
+                  <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search subjects..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  />
                 </div>
-                <h3 className={`font-semibold text-gray-900 dark:text-white ${compactView ? 'text-sm mb-1' : 'mb-1'}`}>
-                  Add New Subject
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Start tracking a new subject
-                </p>
-              </button>
+
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-semibold text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Subject
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 h-full flex-1 overflow-y-auto">
+              <HomepageTodo subjects={subjects} />
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search subjects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
-
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
               <BookMarked className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <span className="font-semibold text-gray-900 dark:text-white">

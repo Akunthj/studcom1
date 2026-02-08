@@ -5,6 +5,7 @@ import { useSubject } from '@/contexts/SubjectContext';
 import { useResourceType } from '@/contexts/ResourceTypeContext';
 import { demoStorage } from '@/lib/demoMode';
 import { storage } from '@/lib/storage';
+import { getScopedStorageKey } from '@/lib/storageScope';
 import { supabase } from '@/lib/supabase';
 import { Subject, Topic, Resource } from '@/lib/types';
 
@@ -61,10 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [topicError, setTopicError] = useState('');
 
   const folderStorageKey = currentSubjectId
-    ? `studcom:custom_sections:${currentSubjectId}:${activeResourceType}`
+    ? getScopedStorageKey(`studcom:custom_sections:${currentSubjectId}:${activeResourceType}`)
     : null;
   const expandedStorageKey = currentSubjectId
-    ? `studcom:custom_sections_expanded:${currentSubjectId}:${activeResourceType}`
+    ? getScopedStorageKey(`studcom:custom_sections_expanded:${currentSubjectId}:${activeResourceType}`)
     : null;
 
   /* -----------------------------
