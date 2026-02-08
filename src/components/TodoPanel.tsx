@@ -64,8 +64,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     setTodos(initialTodos);
   }, [activeSubjectId]);
 
-  const syncTodosToServer = async (todosToSync: Todo[]) => {
-    void todosToSync;
+  const syncTodosToServer = async () => {
     // TODO: Implement server sync when backend is ready
     // await supabase.from('todos').upsert(todos);
   };
@@ -75,7 +74,7 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     setTodos((current) => {
       const updated = updater(current);
       localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(updated));
-      syncTodosToServer(updated);
+      syncTodosToServer();
       return updated;
     });
   };
