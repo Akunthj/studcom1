@@ -7,25 +7,35 @@ export default function NoteView() {
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
-    if (id) load();
-  }, [id]);
+    let cancelled = false;
 
-  async function load() {
-    setStatus("loading");
-    try {
-      const res = await fetch(`/api/notes/${id}`);
-      const json = await res.json();
-      if (res.ok && json.status === "done") {
-        setNote(json.notes);
-        setStatus("done");
-      } else {
-        setStatus(json.status || "error");
+    async function loadNote() {
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/notes/${id}`, { cache: 'no-cache' });
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          setNote(json.notes);
+          setStatus(json.status === "done" ? "done" : json.status || "error");
+        } else if (!cancelled) {
+          setStatus("error");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          setStatus("error");
+        }
       }
-    } catch (err) {
-      console.error(err);
-      setStatus("error");
     }
-  }
+
+    // Fetch exactly once per noteId change, no polling.
+    // The cancelled flag prevents state updates if component unmounts during fetch.
+    loadNote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   if (!id) return <div>No job selected</div>;
   if (status === "loading") return <div>Loading…</div>;
