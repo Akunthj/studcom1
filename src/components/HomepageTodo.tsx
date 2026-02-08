@@ -160,7 +160,7 @@ export const HomepageTodo: React.FC<HomepageTodoProps> = ({ subjects }) => {
         </button>
       </div>
 
-      <div className="max-h-[min(16rem,50vh)] overflow-y-auto pr-1 space-y-4">
+      <div className="max-h-[min(16rem,50vh)] min-h-[min(16rem,50vh)] overflow-y-auto pr-1 space-y-4">
         {subjects.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
             <Circle className="w-10 h-10 mx-auto mb-2 opacity-50" />
