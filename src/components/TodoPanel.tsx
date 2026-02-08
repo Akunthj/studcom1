@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, Plus, Trash2, Check, Circle, Filter } from 'lucide-react';
 import { useSubject } from '@/contexts/SubjectContext';
@@ -33,7 +33,6 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
   const subjectIdFromUrl = searchParams.get('subject');
   const activeSubjectId = currentSubjectId ?? subjectIdFromUrl;
   const [todos, setTodos] = useState<Todo[]>([]);
-  const todosRef = useRef<Todo[]>([]);
   const [inputText, setInputText] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,22 +64,20 @@ export const TodoPanel: React.FC<TodoPanelProps> = ({ onClose }) => {
     setTodos(initialTodos);
   }, [activeSubjectId]);
 
-  useEffect(() => {
-    todosRef.current = todos;
-  }, [todos]);
-
-  const syncTodosToServer = async (todosToSync: Todo[]) => {
-    void todosToSync;
+  const syncTodosToServer = (todosToSync: Todo[]) => {
+    if (todosToSync.length === 0) return;
     // TODO: Implement server sync when backend is ready
     // await supabase.from('todos').upsert(todos);
   };
 
   const updateTodos = (updater: (current: Todo[]) => Todo[]) => {
     if (!activeSubjectId) return;
-    const updated = updater(todosRef.current);
-    setTodos(updated);
-    localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(updated));
-    syncTodosToServer(updated);
+    setTodos((current) => {
+      const updated = updater(current);
+      localStorage.setItem(getStorageKey(activeSubjectId), JSON.stringify(updated));
+      syncTodosToServer(updated);
+      return updated;
+    });
   };
 
   const addTodo = () => {
